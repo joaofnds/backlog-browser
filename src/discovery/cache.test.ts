@@ -14,7 +14,7 @@ let file: string;
 let cache: DiscoveryCache;
 
 beforeEach(async () => {
-  directory = await mkdtemp(join(tmpdir(), "backlog-hub-cache-"));
+  directory = await mkdtemp(join(tmpdir(), "backlog-browser-cache-"));
   file = join(directory, "nested", "discovery.json");
   cache = new DiscoveryCache({ file });
 });

@@ -26,7 +26,7 @@ export async function locateBacklog(options: { run?: CommandRunner } = {}): Prom
   if (missing.length > 0) {
     throw new BacklogUnavailable(
       `\`${BINARY} browser\` (version ${version.stdout.trim()}) does not accept ${missing.join(" or ")}. ` +
-        `backlog-hub needs ${REQUIRED_FLAGS.join(" and ")} to run one server per project.`,
+        `backlog-browser needs ${REQUIRED_FLAGS.join(" and ")} to run one server per project.`,
     );
   }
 

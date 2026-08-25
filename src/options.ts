@@ -9,7 +9,7 @@ export const DEFAULTS = {
   idleTimeoutMinutes: 30,
 } as const;
 
-export const USAGE = `Usage: backlog-hub [root]
+export const USAGE = `Usage: backlog-browser [root]
 
 One local board for every Backlog.md project under a folder.
 

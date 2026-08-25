@@ -8,7 +8,7 @@ import { discoverProjects } from "./discovery.ts";
 let root: string;
 
 beforeEach(async () => {
-  root = await mkdtemp(join(tmpdir(), "backlog-hub-discovery-"));
+  root = await mkdtemp(join(tmpdir(), "backlog-browser-discovery-"));
 });
 
 afterEach(async () => {

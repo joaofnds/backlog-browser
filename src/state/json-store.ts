@@ -4,7 +4,7 @@ import { join } from "node:path";
 export function stateFile(name: string): string {
   const base = process.env.XDG_STATE_HOME ?? join(homedir(), ".local", "state");
 
-  return join(base, "backlog-hub", name);
+  return join(base, "backlog-browser", name);
 }
 
 export async function readJsonObject(file: string): Promise<Record<string, unknown>> {

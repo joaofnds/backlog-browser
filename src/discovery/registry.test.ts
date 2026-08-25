@@ -43,7 +43,7 @@ function namesOf(projects: readonly { name: string }[]) {
 }
 
 beforeEach(async () => {
-  root = await mkdtemp(join(tmpdir(), "backlog-hub-registry-"));
+  root = await mkdtemp(join(tmpdir(), "backlog-browser-registry-"));
   cache = new DiscoveryCache({ file: join(root, ".cache", "discovery.json") });
   scans = 0;
 });

@@ -12,7 +12,7 @@ let directory: string;
 let file: string;
 
 beforeEach(async () => {
-  directory = await mkdtemp(join(tmpdir(), "backlog-hub-state-"));
+  directory = await mkdtemp(join(tmpdir(), "backlog-browser-state-"));
   file = join(directory, "nested", "state.json");
 });
 

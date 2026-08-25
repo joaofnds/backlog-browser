@@ -1,10 +1,10 @@
-# backlog-hub
+# backlog-browser
 
 One local URL for every [Backlog.md](https://backlog.md) project under a folder, with a skinny
 toolbar to switch between them. Everything below the toolbar is the stock Backlog.md board.
 
 ```bash
-cd ~/code && backlog-hub
+cd ~/code && backlog-browser
 ```
 
 With no argument the current directory is the root, so open a shell wherever your projects live
@@ -16,10 +16,10 @@ and run it.
 source with no rebuild:
 
 ```bash
-ln -sf "$PWD/src/cli.ts" ~/.local/bin/backlog-hub
+ln -sf "$PWD/src/cli.ts" ~/.local/bin/backlog-browser
 ```
 
-For a standalone binary with no Bun on `PATH`, `bun run build` writes `dist/backlog-hub`; link
+For a standalone binary with no Bun on `PATH`, `bun run build` writes `dist/backlog-browser`; link
 that instead and rebuild after each change.
 
 ## How it works
@@ -43,7 +43,7 @@ CSP `frame-ancestors`, which is what makes the iframe work.
 ## Usage
 
 ```
-backlog-hub [root]
+backlog-browser [root]
   --port <n>           hub port (default 6789)
   --depth <n>          discovery depth (default 5)
   --max-children <n>   warm child servers (default 4)
@@ -61,7 +61,7 @@ dotted directory, and does not descend into a project once found. There is no fi
 The walk runs once and its result is cached, so startup does not pay for it again:
 
 ```
-~/.local/state/backlog-hub/discovery.json   ($XDG_STATE_HOME when set)
+~/.local/state/backlog-browser/discovery.json   ($XDG_STATE_HOME when set)
 ```
 
 The cache holds the project paths per root, keyed by the depth they were found at, so changing

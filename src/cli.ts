@@ -82,7 +82,7 @@ function listen(deps: Parameters<typeof startHub>[0]): Bun.Server<undefined> | n
 function announce(url: string, registry: ProjectRegistry, options: HubOptions): void {
   const count = registry.all().length;
   const noun = count === 1 ? "project" : "projects";
-  console.log(`backlog-hub → ${url}`);
+  console.log(`backlog-browser → ${url}`);
   console.log(`${count} ${noun} under ${options.root} (depth ${options.depth})`);
 }
 

@@ -21,7 +21,7 @@ export class HubHarness {
   ) {}
 
   static async start(options: { depth?: number } = {}): Promise<HubHarness> {
-    const root = await mkdtemp(join(tmpdir(), "backlog-hub-"));
+    const root = await mkdtemp(join(tmpdir(), "backlog-browser-"));
     const cache = new DiscoveryCache({ file: join(root, ".state", "discovery.json") });
     const registry = new ProjectRegistry({ root, depth: options.depth ?? 3, cache });
     await registry.load();
