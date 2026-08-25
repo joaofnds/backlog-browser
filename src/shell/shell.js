@@ -12,7 +12,6 @@ function must(id) {
   return node;
 }
 
-const board = /** @type {HTMLIFrameElement} */ (must("board"));
 const overflow = must("overflow");
 const overflowList = must("overflow-list");
 const overflowSummary = must("overflow-summary");
@@ -21,9 +20,11 @@ const pickerInput = /** @type {HTMLInputElement} */ (must("picker-input"));
 const pickerList = must("picker-list");
 const placeholder = must("placeholder");
 const projectList = must("project-list");
+const stage = /** @type {HTMLElement} */ (must("placeholder").parentElement);
 const switcher = /** @type {HTMLElement} */ (must("project-list").parentElement);
 
 const POLL_INTERVAL_MS = 400;
+const MAX_FRAMES = 4;
 
 /** @type {Inventory} */
 let inventory = { root: "", depth: 0, active: null, projects: [] };
@@ -34,6 +35,9 @@ let activation = null;
 /** @type {ReturnType<typeof setTimeout> | undefined} */
 let pollTimer;
 let highlighted = 0;
+
+/** @type {Map<string, HTMLIFrameElement>} */
+const frames = new Map();
 
 /* Rendering ---------------------------------------------------------------- */
 
@@ -111,17 +115,78 @@ function renderStage() {
     return showMessage("Pick a project", "Choose a project from the toolbar above.");
   }
 
-  if (activation.status === "ready" && activation.url) return showBoard(activation.url);
+  if (activation.status === "ready" && activation.url && activeSlug !== null) {
+    return showBoard(activeSlug, activation.url);
+  }
   if (activation.status === "failed") return showFailure(activation);
 
   return showMessage("Starting…", `Waiting for ${nameOf(activeSlug)} to come up.`);
 }
 
-/** @param {string} url */
-function showBoard(url) {
-  if (board.src !== url) board.src = url;
-  board.hidden = false;
+/**
+ * Each project keeps its own frame, shown and hidden rather than reloaded. Reassigning `src`
+ * makes the embedded document repaint from its own white canvas, which no styling on this side
+ * can cover, and it throws away the board's scroll and filter state.
+ *
+ * @param {string} slug
+ * @param {string} url
+ */
+function showBoard(slug, url) {
+  const frame = frameFor(slug, url);
+  frames.delete(slug);
+  frames.set(slug, frame);
+
+  if (frame.dataset.loaded === "yes") reveal(slug);
+}
+
+/** @param {string} slug */
+function reveal(slug) {
+  for (const [other, otherFrame] of frames) otherFrame.hidden = other !== slug;
   placeholder.hidden = true;
+  evictFrames();
+}
+
+/**
+ * @param {string} slug
+ * @param {string} url
+ */
+function frameFor(slug, url) {
+  const existing = frames.get(slug);
+  if (existing && existing.src === url) return existing;
+
+  existing?.remove();
+
+  const frame = document.createElement("iframe");
+  frame.className = "board";
+  frame.title = `${nameOf(slug)} board`;
+  frame.hidden = true;
+  frame.addEventListener("load", () => {
+    frame.dataset.loaded = "yes";
+    if (activeSlug === slug) reveal(slug);
+  });
+  frame.src = url;
+  stage.append(frame);
+  frames.set(slug, frame);
+
+  return frame;
+}
+
+function evictFrames() {
+  while (frames.size > MAX_FRAMES) {
+    const [oldest, frame] = /** @type {[string, HTMLIFrameElement]} */ ([...frames][0]);
+    frame.remove();
+    frames.delete(oldest);
+  }
+}
+
+function hideBoards() {
+  for (const frame of frames.values()) frame.hidden = true;
+}
+
+/** @param {string} slug */
+function dropFrame(slug) {
+  frames.get(slug)?.remove();
+  frames.delete(slug);
 }
 
 /**
@@ -129,13 +194,13 @@ function showBoard(url) {
  * @param {string} detail
  */
 function showMessage(heading, detail) {
-  board.hidden = true;
+  hideBoards();
   placeholder.hidden = false;
   placeholder.replaceChildren(element("h1", heading), element("p", detail));
 }
 
 function showEmptyRoot() {
-  board.hidden = true;
+  hideBoards();
   placeholder.hidden = false;
 
   const detail = element("p", "Looked for a ");
@@ -148,7 +213,7 @@ function showEmptyRoot() {
 
 /** @param {Activation} failure */
 function showFailure(failure) {
-  board.hidden = true;
+  hideBoards();
   placeholder.hidden = false;
 
   const retry = element("button", "Retry");
@@ -193,7 +258,6 @@ async function switchTo(slug, options = {}) {
 
   activeSlug = slug;
   activation = null;
-  board.hidden = true;
   overflow.removeAttribute("open");
   clearTimeout(pollTimer);
   renderToolbar();
@@ -244,6 +308,10 @@ async function load(path, init) {
 
 async function refresh() {
   await load("/api/refresh", { method: "POST" });
+
+  for (const slug of [...frames.keys()]) {
+    if (!inventory.projects.some((project) => project.slug === slug)) dropFrame(slug);
+  }
 
   if (activeSlug !== null && !inventory.projects.some((it) => it.slug === activeSlug)) {
     activeSlug = null;

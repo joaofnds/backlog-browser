@@ -39,7 +39,7 @@ describe("hub server", () => {
 
       expect(response.status).toBe(200);
       expect(response.headers.get("content-type")).toStartWith("text/html");
-      expect(await response.text()).toContain('<iframe class="board"');
+      expect(await response.text()).toContain('<main class="stage">');
     });
 
     test("serves the shell for a project deep link", async () => {
