@@ -4,8 +4,23 @@ One local URL for every [Backlog.md](https://backlog.md) project under a folder,
 toolbar to switch between them. Everything below the toolbar is the stock Backlog.md board.
 
 ```bash
-bun run src/cli.ts ~/code
+cd ~/code && backlog-hub
 ```
+
+With no argument the current directory is the root, so open a shell wherever your projects live
+and run it.
+
+## Install
+
+`src/cli.ts` carries a `#!/usr/bin/env bun` shebang, so link it onto your `PATH` and it tracks the
+source with no rebuild:
+
+```bash
+ln -sf "$PWD/src/cli.ts" ~/.local/bin/backlog-hub
+```
+
+For a standalone binary with no Bun on `PATH`, `bun run build` writes `dist/backlog-hub`; link
+that instead and rebuild after each change.
 
 ## How it works
 
