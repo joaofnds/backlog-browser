@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Backlog Hub</title>
+    <link rel="stylesheet" href="/shell.css" />
+  </head>
+  <body>
+    <header class="toolbar">
+      <nav class="switcher" aria-label="Projects">
+        <ul class="project-list" id="project-list"></ul>
+        <details class="overflow" id="overflow" hidden>
+          <summary id="overflow-summary">More</summary>
+          <ul class="overflow-list" id="overflow-list"></ul>
+        </details>
+      </nav>
+
+      <div class="actions">
+        <button class="action" id="picker-button" type="button" title="Find a project (Ctrl/Cmd+K)">
+          Find
+        </button>
+        <button class="action" id="refresh-button" type="button" title="Re-run discovery">
+          Refresh
+        </button>
+      </div>
+    </header>
+
+    <main class="stage">
+      <iframe class="board" id="board" title="Backlog board" hidden></iframe>
+      <div class="placeholder" id="placeholder" role="status" aria-live="polite"></div>
+    </main>
+
+    <dialog class="picker" id="picker" aria-label="Find a project">
+      <label class="visually-hidden" for="picker-input">Filter projects</label>
+      <input
+        autocomplete="off"
+        class="picker-input"
+        id="picker-input"
+        placeholder="Filter by name or path"
+        type="search"
+      />
+      <ul class="picker-list" id="picker-list"></ul>
+    </dialog>
+
+    <script src="/shell.js" type="module"></script>
+  </body>
+</html>

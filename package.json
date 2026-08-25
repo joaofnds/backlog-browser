@@ -1,0 +1,20 @@
+{
+  "name": "backlog-hub",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {
+    "backlog-hub": "./src/cli.ts"
+  },
+  "scripts": {
+    "start": "bun run src/cli.ts",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p src/shell",
+    "check": "biome check --write . && tsc --noEmit && bun test",
+    "build": "bun build --compile --outfile dist/backlog-hub src/cli.ts"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.3.14",
+    "@types/bun": "^1.4.0",
+    "typescript": "^5.9.3"
+  }
+}
