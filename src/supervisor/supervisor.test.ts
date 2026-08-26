@@ -237,6 +237,17 @@ describe("Supervisor", () => {
       expect(backlog.childFor(alpha.path).killed).toBe(true);
     });
 
+    test("forgets the swept project's status", async () => {
+      const supervisor = supervisorWith({ idleTimeoutMs: 1_000 });
+      await activateReady(supervisor, alpha);
+      await activateReady(supervisor, beta);
+
+      clock += 1_001;
+      supervisor.stopIdle();
+
+      expect(supervisor.statusOf(alpha).status).toEqual("idle");
+    });
+
     test("spares the project being viewed", async () => {
       const supervisor = supervisorWith({ idleTimeoutMs: 1_000 });
       await activateReady(supervisor, alpha);
