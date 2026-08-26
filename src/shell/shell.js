@@ -3,7 +3,7 @@
  * @typedef {"default" | "manual"} OrderMode
  * @typedef {{ root: string, depth: number, maxChildren: number, active: string | null, mode: OrderMode, projects: ProjectSummary[] }} Inventory
  * @typedef {{ status: string, url?: string, error?: string, stderr?: string }} Activation
- * @typedef {{ kind: "chosen", path: string } | { kind: "cancelled" }} PickedFolder
+ * @typedef {{ kind: "chosen", path: string } | { kind: "cancelled" }} ChosenFolder
  */
 
 /** @param {string} id */
@@ -659,19 +659,19 @@ async function saveSettings(maxChildren) {
 /* Adding a project folder --------------------------------------------------- */
 
 /**
- * The picker is the host's, opened by the hub, because a page cannot learn an absolute path from
+ * The chooser is the host's, opened by the hub, because a page cannot learn an absolute path from
  * one of its own. The button stays disabled meanwhile: the dialog is modal on the desktop, so a
  * second click would queue a second one behind it.
  */
-async function pickFolder() {
+async function chooseFolder() {
   browseButton.disabled = true;
   try {
-    const response = await fetch("/api/pick-folder", { method: "POST" }).catch(() => null);
+    const response = await fetch("/api/choose-folder", { method: "POST" }).catch(() => null);
     if (!response?.ok) return showNotice(await reasonFrom(response));
 
-    /** @type {PickedFolder} */
-    const picked = await response.json();
-    if (picked.kind === "chosen") await addFolder(picked.path);
+    /** @type {ChosenFolder} */
+    const chosen = await response.json();
+    if (chosen.kind === "chosen") await addFolder(chosen.path);
   } finally {
     browseButton.disabled = false;
   }
@@ -683,7 +683,7 @@ async function reasonFrom(response) {
 
   const body = await response.json().catch(() => null);
 
-  return body?.error ?? "The folder picker failed.";
+  return body?.error ?? "The folder chooser failed.";
 }
 
 /** @param {string} path */
@@ -830,7 +830,7 @@ function movePickerSelection(step) {
 
 must("refresh-button").addEventListener("click", openRefreshDialog);
 must("picker-button").addEventListener("click", openPicker);
-browseButton.addEventListener("click", pickFolder);
+browseButton.addEventListener("click", chooseFolder);
 must("settings-button").addEventListener("click", openSettingsDialog);
 
 must("refresh-form").addEventListener("submit", () => refresh(Number(refreshDepth.value)));

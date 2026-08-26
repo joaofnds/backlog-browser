@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { DiscoveryCache } from "../discovery/cache.ts";
-import type { PickedFolder } from "../discovery/pick-folder.ts";
+import type { ChosenFolder } from "../discovery/choose-folder.ts";
 import type { Project } from "../discovery/project.ts";
 import { ProjectRegistry } from "../discovery/registry.ts";
 import { rememberedPorts } from "../state/remembered-ports.ts";
@@ -15,10 +15,10 @@ import { startHub } from "./server.ts";
 const HARNESS_DEPTH = 3;
 const HARNESS_MAX_CHILDREN = 4;
 
-/** Stands in for the host's picker: the tests say what the user chose, no window involved. */
-export class FakePicker {
+/** Stands in for the host's chooser: the tests say what the user chose, no window involved. */
+export class FakeChooser {
   readonly openedAt: string[] = [];
-  private answer: PickedFolder = { kind: "cancelled" };
+  private answer: ChosenFolder = { kind: "cancelled" };
 
   chooses(path: string): void {
     this.answer = { kind: "chosen", path };
@@ -36,7 +36,7 @@ export class FakePicker {
     this.answer = { kind: "failed", reason };
   }
 
-  pick = async ({ startAt }: { startAt: string }): Promise<PickedFolder> => {
+  choose = async ({ startAt }: { startAt: string }): Promise<ChosenFolder> => {
     this.openedAt.push(startAt);
 
     return this.answer;
@@ -49,7 +49,7 @@ export class HubHarness {
     private readonly registry: ProjectRegistry,
     readonly store: StateStore,
     readonly backlog: FakeBacklog,
-    readonly picker: FakePicker,
+    readonly chooser: FakeChooser,
     readonly supervisor: Supervisor,
     private readonly server: Bun.Server<undefined>,
   ) {}
@@ -73,7 +73,7 @@ export class HubHarness {
     await registry.load();
     await registry.adopt((await store.list(root)).added);
     const backlog = new FakeBacklog();
-    const picker = new FakePicker();
+    const chooser = new FakeChooser();
     const supervisor = new Supervisor({
       launch: backlog.launch,
       probe: backlog.probe,
@@ -89,9 +89,9 @@ export class HubHarness {
       registry,
       store,
       backlog,
-      picker,
+      chooser,
       supervisor,
-      startHub({ registry, store, supervisor, pickFolder: picker.pick, port: 0 }),
+      startHub({ registry, store, supervisor, chooseFolder: chooser.choose, port: 0 }),
     );
   }
 
@@ -171,8 +171,8 @@ export class HubDriver {
     return this.post("/api/settings", { maxChildren });
   }
 
-  async pickFolder(): Promise<Response> {
-    return this.post("/api/pick-folder", {});
+  async chooseFolder(): Promise<Response> {
+    return this.post("/api/choose-folder", {});
   }
 
   async addPath(path: string): Promise<Response> {

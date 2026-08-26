@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 import { DiscoveryCache } from "./discovery/cache.ts";
-import { nativeFolderPicker } from "./discovery/pick-folder.ts";
+import { nativeFolderChooser } from "./discovery/choose-folder.ts";
 import { ProjectRegistry } from "./discovery/registry.ts";
 import { startHub } from "./http/server.ts";
 import {
@@ -68,7 +68,7 @@ async function main(argv: string[]): Promise<void> {
     registry,
     store,
     supervisor,
-    pickFolder: nativeFolderPicker,
+    chooseFolder: nativeFolderChooser,
     port: options.port,
   });
   if (server === null) return;

@@ -205,44 +205,44 @@ describe("hub server", () => {
     });
   });
 
-  describe("POST /api/pick-folder", () => {
-    test("opens the picker at the hub's root", async () => {
-      await driver.pickFolder();
+  describe("POST /api/choose-folder", () => {
+    test("opens the chooser at the hub's root", async () => {
+      await driver.chooseFolder();
 
-      expect(harness.picker.openedAt).toEqual([harness.root]);
+      expect(harness.chooser.openedAt).toEqual([harness.root]);
     });
 
     test("reports the folder the user chose", async () => {
-      harness.picker.chooses(join(harness.root, "somewhere"));
+      harness.chooser.chooses(join(harness.root, "somewhere"));
 
-      expect(await (await driver.pickFolder()).json()).toEqual({
+      expect(await (await driver.chooseFolder()).json()).toEqual({
         kind: "chosen",
         path: join(harness.root, "somewhere"),
       });
     });
 
-    test("reports a dismissed picker as cancelled", async () => {
-      harness.picker.cancels();
+    test("reports a dismissed chooser as cancelled", async () => {
+      harness.chooser.cancels();
 
-      expect(await (await driver.pickFolder()).json()).toEqual({ kind: "cancelled" });
+      expect(await (await driver.chooseFolder()).json()).toEqual({ kind: "cancelled" });
     });
 
-    describe("when the picker itself fails", () => {
+    describe("when the chooser itself fails", () => {
       test("responds 500 rather than calling the platform unsupported", async () => {
-        harness.picker.fails("The folder picker closed without answering.");
+        harness.chooser.fails("The chooser closed without answering.");
 
-        expect((await driver.pickFolder()).status).toBe(500);
+        expect((await driver.chooseFolder()).status).toBe(500);
       });
     });
 
-    describe("when the host has no picker", () => {
+    describe("when the host has no chooser", () => {
       test("responds 501 naming the reason", async () => {
-        harness.picker.breaks("No folder picker on linux.");
+        harness.chooser.breaks("No folder chooser on linux.");
 
-        const response = await driver.pickFolder();
+        const response = await driver.chooseFolder();
 
         expect(response.status).toBe(501);
-        expect(await response.json()).toEqual({ error: "No folder picker on linux." });
+        expect(await response.json()).toEqual({ error: "No folder chooser on linux." });
       });
     });
   });

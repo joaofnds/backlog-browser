@@ -91,8 +91,8 @@ macOS folder chooser instead, starting at the root, and adds whatever you pick.
 The dialog belongs to the hub, not the page: a browser hands a page no absolute filesystem path
 from either `webkitdirectory` or `showDirectoryPicker`, so the hub shells out to
 `osascript -e 'POSIX path of (choose folder ...)'` and the page receives the path it returns.
-That also means the picker only exists where the hub runs; on anything but macOS, Add reports that
-the platform has no picker.
+That also means the chooser only exists where the hub runs; on anything but macOS, Add reports that
+the platform has no chooser.
 
 Added projects live in `state.json` rather than the discovery cache, because a walk rewrites that
 cache and nothing in a walk would put them back. They survive Refresh and restarts, they sit in

@@ -1,5 +1,5 @@
+import type { FolderChooser } from "../discovery/choose-folder.ts";
 import { readProject } from "../discovery/discovery.ts";
-import type { FolderPicker } from "../discovery/pick-folder.ts";
 import type { ProjectRegistry } from "../discovery/registry.ts";
 import type { ListedProject } from "../list/list.ts";
 import shellHtml from "../shell/index.html" with { type: "text" };
@@ -15,10 +15,10 @@ export function startHub(options: {
   registry: ProjectRegistry;
   store: StateStore;
   supervisor: Supervisor;
-  pickFolder: FolderPicker;
+  chooseFolder: FolderChooser;
   port: number;
 }): Bun.Server<undefined> {
-  const { registry, store, supervisor, pickFolder } = options;
+  const { registry, store, supervisor, chooseFolder } = options;
 
   return Bun.serve({
     hostname: LOOPBACK,
@@ -78,13 +78,13 @@ export function startHub(options: {
           return json(await inventoryOf(registry, store, supervisor));
         },
       },
-      "/api/pick-folder": {
+      "/api/choose-folder": {
         POST: async () => {
-          const picked = await pickFolder({ startAt: registry.root });
-          if (picked.kind === "unavailable") return json({ error: picked.reason }, 501);
-          if (picked.kind === "failed") return json({ error: picked.reason }, 500);
+          const chosen = await chooseFolder({ startAt: registry.root });
+          if (chosen.kind === "unavailable") return json({ error: chosen.reason }, 501);
+          if (chosen.kind === "failed") return json({ error: chosen.reason }, 500);
 
-          return noStore(json(picked));
+          return noStore(json(chosen));
         },
       },
       "/api/list/added": {

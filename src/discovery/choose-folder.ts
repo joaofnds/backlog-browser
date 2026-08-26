@@ -1,22 +1,22 @@
 import { stat } from "node:fs/promises";
 
-export type PickedFolder =
+export type ChosenFolder =
   | { readonly kind: "chosen"; readonly path: string }
   | { readonly kind: "cancelled" }
   | { readonly kind: "unavailable"; readonly reason: string }
   | { readonly kind: "failed"; readonly reason: string };
 
-export type FolderPicker = (options: { startAt: string }) => Promise<PickedFolder>;
+export type FolderChooser = (options: { startAt: string }) => Promise<ChosenFolder>;
 
 const PROMPT = "Choose a Backlog.md project folder";
 
 /**
- * The host's own picker, not the browser's: a page gets no absolute path out of
+ * The host's own chooser, not the browser's: a page gets no absolute path out of
  * `webkitdirectory` or `showDirectoryPicker`, and an absolute path is the whole point.
  */
-export const nativeFolderPicker: FolderPicker = async ({ startAt }) => {
+export const nativeFolderChooser: FolderChooser = async ({ startAt }) => {
   if (process.platform !== "darwin") {
-    return { kind: "unavailable", reason: `No folder picker on ${process.platform}.` };
+    return { kind: "unavailable", reason: `No folder chooser on ${process.platform}.` };
   }
 
   const script = await appleScript(startAt);
@@ -31,7 +31,7 @@ export const nativeFolderPicker: FolderPicker = async ({ startAt }) => {
 
   if (error.includes("-128")) return { kind: "cancelled" };
 
-  return { kind: "failed", reason: error.trim() || "The folder picker closed without answering." };
+  return { kind: "failed", reason: error.trim() || "The chooser closed without answering." };
 };
 
 /** `choose folder` errors on a `default location` that is gone, so it is offered only when it is there. */
