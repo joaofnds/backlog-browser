@@ -14,6 +14,7 @@ import { startHub } from "./server.ts";
 export class HubHarness {
   private constructor(
     readonly root: string,
+    private readonly depth: number,
     private readonly registry: ProjectRegistry,
     readonly store: StateStore,
     readonly backlog: FakeBacklog,
@@ -21,10 +22,11 @@ export class HubHarness {
     private readonly server: Bun.Server<undefined>,
   ) {}
 
-  static async start(options: { depth?: number } = {}): Promise<HubHarness> {
-    const root = await mkdtemp(join(tmpdir(), "backlog-browser-"));
+  static async start(options: { depth?: number; root?: string } = {}): Promise<HubHarness> {
+    const root = options.root ?? (await mkdtemp(join(tmpdir(), "backlog-browser-")));
+    const depth = options.depth ?? 3;
     const cache = new DiscoveryCache({ file: join(root, ".state", "discovery.json") });
-    const registry = new ProjectRegistry({ root, depth: options.depth ?? 3, cache });
+    const registry = new ProjectRegistry({ root, depth, cache });
     await registry.load();
     const store = new StateStore({ file: join(root, ".state", "state.json") });
     const backlog = new FakeBacklog();
@@ -40,6 +42,7 @@ export class HubHarness {
 
     return new HubHarness(
       root,
+      depth,
       registry,
       store,
       backlog,
@@ -64,6 +67,18 @@ export class HubHarness {
     await Bun.write(join(path, "backlog", "config.yml"), `project_name: "${name}"\n`);
 
     return path;
+  }
+
+  /**
+   * A second hub over the same root, so the same `state.json` and discovery cache carry over. The
+   * child ports do not: a fresh `FakeBacklog` counts from the bottom again, which is what makes a
+   * project landing on its old port evidence that the port was remembered rather than re-derived.
+   */
+  async restart(): Promise<HubHarness> {
+    await this.supervisor.shutdown();
+    await this.server.stop(true);
+
+    return HubHarness.start({ root: this.root, depth: this.depth });
   }
 
   async stop(): Promise<void> {

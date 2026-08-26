@@ -118,6 +118,37 @@ describe("hub server", () => {
     });
   });
 
+  describe("across hub runs", () => {
+    test("gives a project back the port it had", async () => {
+      await addProjects("Alpha", "Beta");
+      const inventory = await driver.projects();
+      const beta = slugAt(inventory, pathTo("Beta"));
+      await driver.activate(slugAt(inventory, pathTo("Alpha")));
+      await driver.activate(beta);
+      const before = harness.backlog.childFor(pathTo("Beta")).spec.port;
+
+      harness = await harness.restart();
+      driver = harness.driver();
+      await driver.activate(beta);
+
+      expect(harness.backlog.childFor(pathTo("Beta")).spec.port).toEqual(before);
+    });
+
+    test("starts the project anyway when that port is taken", async () => {
+      const slug = await addAndDiscover("Alpha");
+      await driver.activate(slug);
+      const before = harness.backlog.childFor(pathTo("Alpha")).spec.port;
+
+      harness = await harness.restart();
+      driver = harness.driver();
+      harness.backlog.occupy(before);
+      await driver.activate(slug);
+      await readyUp(slug);
+
+      expect(await (await driver.status(slug)).json()).toMatchObject({ status: "ready" });
+    });
+  });
+
   describe("POST /api/refresh", () => {
     test("picks up a project added after startup", async () => {
       await harness.addProject("Latecomer", "latecomer");
