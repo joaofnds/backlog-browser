@@ -72,11 +72,18 @@ export class HubHarness {
   }
 }
 
-export type ProjectSummary = { slug: string; name: string; path: string; status: string };
+export type ProjectSummary = {
+  slug: string;
+  name: string;
+  path: string;
+  status: string;
+  hidden: boolean;
+};
 export type Inventory = {
   root: string;
   depth: number;
   active: string | null;
+  mode: "default" | "manual";
   projects: ProjectSummary[];
 };
 
@@ -103,5 +110,30 @@ export class HubDriver {
 
   async status(slug: string): Promise<Response> {
     return this.get(`/api/projects/${slug}`);
+  }
+
+  async post(path: string, body: unknown): Promise<Response> {
+    return fetch(`${this.origin}${path}`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  }
+
+  async hide(path: string): Promise<Inventory> {
+    return (await this.post("/api/list/hidden", { path, hidden: true })).json() as Promise<Inventory>;
+  }
+
+  async show(path: string): Promise<Inventory> {
+    return (await this.post("/api/list/hidden", { path, hidden: false }))
+      .json() as Promise<Inventory>;
+  }
+
+  async move(path: string, before: string | null): Promise<Inventory> {
+    return (await this.post("/api/list/order", { path, before })).json() as Promise<Inventory>;
+  }
+
+  async resetOrder(): Promise<Inventory> {
+    return (await this.post("/api/list/reset", {})).json() as Promise<Inventory>;
   }
 }

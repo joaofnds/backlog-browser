@@ -1,6 +1,7 @@
 /**
- * @typedef {{ slug: string, name: string, path: string, status: string }} ProjectSummary
- * @typedef {{ root: string, depth: number, active: string | null, projects: ProjectSummary[] }} Inventory
+ * @typedef {{ slug: string, name: string, path: string, status: string, hidden: boolean }} ProjectSummary
+ * @typedef {"default" | "manual"} OrderMode
+ * @typedef {{ root: string, depth: number, active: string | null, mode: OrderMode, projects: ProjectSummary[] }} Inventory
  * @typedef {{ status: string, url?: string, error?: string, stderr?: string }} Activation
  */
 
@@ -12,6 +13,8 @@ function must(id) {
   return node;
 }
 
+const contextMenu = must("context-menu");
+const orderMode = must("order-mode");
 const overflow = must("overflow");
 const overflowList = must("overflow-list");
 const overflowSummary = must("overflow-summary");
@@ -20,6 +23,7 @@ const pickerInput = /** @type {HTMLInputElement} */ (must("picker-input"));
 const pickerList = must("picker-list");
 const placeholder = must("placeholder");
 const projectList = must("project-list");
+const showHidden = /** @type {HTMLInputElement} */ (must("show-hidden"));
 const stage = /** @type {HTMLElement} */ (must("placeholder").parentElement);
 const switcher = /** @type {HTMLElement} */ (must("project-list").parentElement);
 
@@ -27,7 +31,7 @@ const POLL_INTERVAL_MS = 400;
 const MAX_FRAMES = 4;
 
 /** @type {Inventory} */
-let inventory = { root: "", depth: 0, active: null, projects: [] };
+let inventory = { root: "", depth: 0, active: null, mode: "default", projects: [] };
 /** @type {string | null} */
 let activeSlug = null;
 /** @type {Activation | null} */
@@ -35,9 +39,71 @@ let activation = null;
 /** @type {ReturnType<typeof setTimeout> | undefined} */
 let pollTimer;
 let highlighted = 0;
+/** @type {string | null} */
+let dragging = null;
 
 /** @type {Map<string, HTMLIFrameElement>} */
 const frames = new Map();
+
+/* The list ----------------------------------------------------------------- */
+
+function visible() {
+  return inventory.projects.filter((project) => !project.hidden);
+}
+
+/**
+ * @param {string} route
+ * @param {unknown} body
+ */
+async function mutate(route, body) {
+  const response = await fetch(route, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  }).catch(() => null);
+  if (!response?.ok) return;
+
+  inventory = await response.json();
+  renderToolbar();
+  renderPicker();
+}
+
+/** @param {ProjectSummary} project */
+async function hideProject(project) {
+  await mutate("/api/list/hidden", { path: project.path, hidden: true });
+
+  if (project.slug !== activeSlug) return;
+
+  const next = visible()[0];
+  if (next) switchTo(next.slug);
+}
+
+/** @param {ProjectSummary} project */
+async function showProject(project) {
+  await mutate("/api/list/hidden", { path: project.path, hidden: false });
+}
+
+/**
+ * @param {ProjectSummary} project
+ * @param {number} step
+ */
+async function nudge(project, step) {
+  const order = visible();
+  const from = order.findIndex((candidate) => candidate.path === project.path);
+  const to = from + step;
+  if (from < 0 || to < 0 || to >= order.length) return;
+
+  const anchor = step > 0 ? order[to + 1] : order[to];
+  await mutate("/api/list/order", { path: project.path, before: anchor?.path ?? null });
+
+  focusPill(project.slug);
+}
+
+/** @param {string} slug */
+function focusPill(slug) {
+  const pill = document.querySelector(`.project[data-slug="${CSS.escape(slug)}"]`);
+  if (pill instanceof HTMLElement) pill.focus();
+}
 
 /* Rendering ---------------------------------------------------------------- */
 
@@ -47,9 +113,39 @@ function projectButton(project) {
   button.className = "project";
   button.type = "button";
   button.title = project.path;
+  button.draggable = true;
+  button.dataset.slug = project.slug;
+  button.dataset.path = project.path;
   button.setAttribute("aria-current", String(project.slug === activeSlug));
   button.append(statusDot(project), document.createTextNode(project.name));
   button.addEventListener("click", () => switchTo(project.slug));
+  button.addEventListener("contextmenu", (event) => {
+    event.preventDefault();
+    openContextMenu(project, event);
+  });
+  button.addEventListener("keydown", (event) => {
+    if (event.key === "h" || event.key === "H") {
+      event.preventDefault();
+      hideProject(project);
+    } else if (event.altKey && event.key === "ArrowLeft") {
+      event.preventDefault();
+      nudge(project, -1);
+    } else if (event.altKey && event.key === "ArrowRight") {
+      event.preventDefault();
+      nudge(project, 1);
+    }
+  });
+  button.addEventListener("dragstart", (event) => {
+    dragging = project.path;
+    button.classList.add("dragging");
+    event.dataTransfer?.setData("text/plain", project.path);
+  });
+  button.addEventListener("dragend", () => {
+    dragging = null;
+    button.classList.remove("dragging");
+    clearDropMarks();
+    renderToolbar();
+  });
 
   const item = document.createElement("li");
   item.append(button);
@@ -78,8 +174,14 @@ function labelled(text) {
   return label;
 }
 
+/**
+ * Rebuilding under a live drag is what wedges the gesture: `settle` re-renders every 400 ms while
+ * a child is starting, and `replaceChildren` would destroy the pill the pointer is holding.
+ */
 function renderToolbar() {
-  projectList.replaceChildren(...inventory.projects.map(projectButton));
+  if (dragging !== null) return;
+
+  projectList.replaceChildren(...visible().map(projectButton));
   collapseOverflow();
 }
 
@@ -88,25 +190,100 @@ function collapseOverflow() {
   overflow.hidden = true;
   overflowSummary.textContent = "More";
 
-  if (fitsOneRow()) return;
+  if (!fitsOneRow()) {
+    overflow.hidden = false;
+    const spilled = [];
+    while (!fitsOneRow() && projectList.children.length > 1) {
+      const last = projectList.lastElementChild;
+      if (last === null) break;
 
-  overflow.hidden = false;
-  const hidden = [];
-  while (!fitsOneRow() && projectList.children.length > 1) {
-    const last = projectList.lastElementChild;
-    if (last === null) break;
+      last.remove();
+      spilled.unshift(last);
+    }
+    overflowList.replaceChildren(...spilled);
 
-    last.remove();
-    hidden.unshift(last);
+    const active = overflowList.querySelector('[aria-current="true"]');
+    if (active !== null) overflowSummary.textContent = active.textContent;
   }
-  overflowList.replaceChildren(...hidden);
 
-  const active = overflowList.querySelector('[aria-current="true"]');
-  if (active !== null) overflowSummary.textContent = active.textContent;
+  setDraggable(projectList, true);
+  setDraggable(overflowList, false);
+}
+
+/**
+ * A pill keeps its listeners as `collapseOverflow` moves the node between the two lists, so the
+ * drag affordance has to be revoked on the way in and restored on the way out.
+ *
+ * @param {Element} list
+ * @param {boolean} draggable
+ */
+function setDraggable(list, draggable) {
+  for (const pill of list.querySelectorAll(".project")) {
+    if (pill instanceof HTMLElement) pill.draggable = draggable;
+  }
 }
 
 function fitsOneRow() {
   return switcher.scrollWidth <= switcher.clientWidth;
+}
+
+/* Dragging ----------------------------------------------------------------- */
+
+/**
+ * The pill the dragged one should land in front of, or `null` for the end of the row.
+ *
+ * @param {number} x
+ */
+function anchorAt(x) {
+  for (const pill of projectList.querySelectorAll(".project")) {
+    if (!(pill instanceof HTMLElement) || pill.dataset.path === dragging) continue;
+
+    const box = pill.getBoundingClientRect();
+    if (x < box.left + box.width / 2) return pill;
+  }
+
+  return null;
+}
+
+/** @param {number} x */
+function markDrop(x) {
+  clearDropMarks();
+  const anchor = anchorAt(x);
+
+  if (anchor !== null) anchor.parentElement?.classList.add("drop-before");
+  else projectList.lastElementChild?.classList.add("drop-after");
+}
+
+function clearDropMarks() {
+  for (const item of projectList.children) item.classList.remove("drop-before", "drop-after");
+}
+
+/* Context menu ------------------------------------------------------------- */
+
+/**
+ * @param {ProjectSummary} project
+ * @param {MouseEvent} event
+ */
+function openContextMenu(project, event) {
+  const item = document.createElement("button");
+  item.className = "menu-item";
+  item.type = "button";
+  item.textContent = `Hide ${project.name}`;
+  item.addEventListener("click", () => {
+    closeContextMenu();
+    hideProject(project);
+  });
+
+  contextMenu.replaceChildren(item);
+  contextMenu.hidden = false;
+  contextMenu.style.left = `${event.clientX}px`;
+  contextMenu.style.top = `${event.clientY}px`;
+  item.focus();
+}
+
+function closeContextMenu() {
+  contextMenu.hidden = true;
+  contextMenu.replaceChildren();
 }
 
 function renderStage() {
@@ -323,7 +500,7 @@ async function refresh() {
 
 /** @param {number} step */
 function cycle(step) {
-  const slugs = inventory.projects.map((project) => project.slug);
+  const slugs = visible().map((project) => project.slug);
   if (slugs.length === 0) return;
 
   const next = (slugs.indexOf(activeSlug ?? "") + step + slugs.length) % slugs.length;
@@ -344,16 +521,34 @@ function matching(query) {
 
 function renderPicker() {
   const found = matching(pickerInput.value);
-  highlighted = Math.min(highlighted, Math.max(found.length - 1, 0));
+  const listed = found.filter((project) => !project.hidden);
+  const concealed = showHidden.checked ? found.filter((project) => project.hidden) : [];
+  highlighted = Math.min(highlighted, Math.max(listed.length + concealed.length - 1, 0));
 
-  pickerList.replaceChildren(...found.map(pickerOption));
+  const rows = listed.map((project, index) => pickerRow(project, index));
+  if (concealed.length > 0) {
+    rows.push(separator("Hidden"));
+    rows.push(...concealed.map((project, index) => pickerRow(project, listed.length + index)));
+  }
+
+  pickerList.replaceChildren(...rows);
+  orderMode.textContent = inventory.mode;
+}
+
+/** @param {string} label */
+function separator(label) {
+  const item = document.createElement("li");
+  item.className = "picker-separator";
+  item.append(label);
+
+  return item;
 }
 
 /**
  * @param {ProjectSummary} project
  * @param {number} index
  */
-function pickerOption(project, index) {
+function pickerRow(project, index) {
   const path = element("span", project.path);
   path.className = "picker-path";
 
@@ -368,9 +563,23 @@ function pickerOption(project, index) {
   });
 
   const item = document.createElement("li");
+  item.className = "picker-row";
   item.append(option);
 
+  if (project.hidden) item.append(unhideButton(project));
+
   return item;
+}
+
+/** @param {ProjectSummary} project */
+function unhideButton(project) {
+  const unhide = document.createElement("button");
+  unhide.className = "action";
+  unhide.type = "button";
+  unhide.textContent = "Unhide";
+  unhide.addEventListener("click", () => showProject(project));
+
+  return unhide;
 }
 
 function openPicker() {
@@ -381,13 +590,19 @@ function openPicker() {
   pickerInput.focus();
 }
 
+function pickerOptions() {
+  return [...pickerList.querySelectorAll(".picker-option")].filter(
+    (node) => node instanceof HTMLElement,
+  );
+}
+
 function highlightedOption() {
-  return pickerList.children[highlighted]?.querySelector("button") ?? null;
+  return pickerOptions()[highlighted] ?? null;
 }
 
 /** @param {number} step */
 function movePickerSelection(step) {
-  const count = pickerList.children.length;
+  const count = pickerOptions().length;
   if (count === 0) return;
 
   highlighted = (highlighted + step + count) % count;
@@ -399,6 +614,12 @@ function movePickerSelection(step) {
 
 must("refresh-button").addEventListener("click", refresh);
 must("picker-button").addEventListener("click", openPicker);
+must("reset-order").addEventListener("click", () => mutate("/api/list/reset", {}));
+
+showHidden.addEventListener("change", () => {
+  highlighted = 0;
+  renderPicker();
+});
 
 pickerInput.addEventListener("input", () => {
   highlighted = 0;
@@ -406,7 +627,10 @@ pickerInput.addEventListener("input", () => {
 });
 
 pickerInput.addEventListener("keydown", (event) => {
-  if (event.key === "ArrowDown") {
+  if ((event.key === "Backspace" || event.key === "Delete") && pickerInput.value === "") {
+    event.preventDefault();
+    picker.close();
+  } else if (event.key === "ArrowDown") {
     event.preventDefault();
     movePickerSelection(1);
   } else if (event.key === "ArrowUp") {
@@ -418,7 +642,34 @@ pickerInput.addEventListener("keydown", (event) => {
   }
 });
 
+projectList.addEventListener("dragover", (event) => {
+  if (dragging === null) return;
+
+  event.preventDefault();
+  markDrop(event.clientX);
+});
+
+projectList.addEventListener("drop", (event) => {
+  if (dragging === null) return;
+
+  event.preventDefault();
+  const anchor = anchorAt(event.clientX);
+  mutate("/api/list/order", { path: dragging, before: anchor?.dataset.path ?? null });
+});
+
+document.addEventListener("pointerdown", (event) => {
+  if (contextMenu.hidden) return;
+  if (event.target instanceof Node && contextMenu.contains(event.target)) return;
+
+  closeContextMenu();
+});
+
 document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !contextMenu.hidden) {
+    closeContextMenu();
+    return;
+  }
+
   if (!(event.metaKey || event.ctrlKey)) return;
 
   if (event.key === "k" || event.key === "K") {

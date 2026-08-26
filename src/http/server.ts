@@ -1,5 +1,5 @@
-import type { Project } from "../discovery/project.ts";
 import type { ProjectRegistry } from "../discovery/registry.ts";
+import type { ListedProject } from "../list/list.ts";
 import shellHtml from "../shell/index.html" with { type: "text" };
 import shellCss from "../shell/shell.css" with { type: "text" };
 import shellJs from "../shell/shell.js" with { type: "text" };
@@ -48,27 +48,94 @@ export function startHub(options: {
           return json(await inventoryOf(registry, store, supervisor));
         },
       },
+      "/api/list/hidden": {
+        POST: async (request) => {
+          const body = await bodyOf(request);
+          const path = stringAt(body, "path");
+          const hidden = booleanAt(body, "hidden");
+          if (path === null || hidden === null) return json({ error: "path and hidden" }, 400);
+
+          await store.updateList(registry.root, (list) =>
+            hidden ? list.hide(path) : list.show(path),
+          );
+
+          return json(await inventoryOf(registry, store, supervisor));
+        },
+      },
+      "/api/list/order": {
+        POST: async (request) => {
+          const body = await bodyOf(request);
+          const path = stringAt(body, "path");
+          const before = anchorAt(body, "before");
+          if (path === null || before === undefined) return json({ error: "path and before" }, 400);
+
+          await store.updateList(registry.root, (list) =>
+            list.move({ path, before, discovered: registry.all() }),
+          );
+
+          return json(await inventoryOf(registry, store, supervisor));
+        },
+      },
+      "/api/list/reset": {
+        POST: async () => {
+          await store.updateList(registry.root, (list) => list.reset());
+
+          return json(await inventoryOf(registry, store, supervisor));
+        },
+      },
     },
     fetch: () => json({ error: "not found" }, 404),
   });
 }
 
 async function inventoryOf(registry: ProjectRegistry, store: StateStore, supervisor: Supervisor) {
+  const list = await store.list(registry.root);
+
   return {
     root: registry.root,
     depth: registry.depth,
     active: await store.lastActive(registry.root),
-    projects: registry.all().map((project) => describe(project, supervisor)),
+    mode: list.mode,
+    projects: list.arrange(registry.all()).map((listed) => describe(listed, supervisor)),
   };
 }
 
-function describe(project: Project, supervisor: Supervisor) {
+function describe(listed: ListedProject, supervisor: Supervisor) {
   return {
-    slug: project.slug,
-    name: project.name,
-    path: project.path,
-    status: supervisor.statusOf(project).status,
+    slug: listed.project.slug,
+    name: listed.project.name,
+    path: listed.project.path,
+    status: supervisor.statusOf(listed.project).status,
+    hidden: listed.hidden,
   };
+}
+
+async function bodyOf(request: Request): Promise<Record<string, unknown>> {
+  const body = await request.json().catch(() => null);
+
+  return typeof body === "object" && body !== null && !Array.isArray(body)
+    ? (body as Record<string, unknown>)
+    : {};
+}
+
+function stringAt(body: Record<string, unknown>, key: string): string | null {
+  const value = body[key];
+
+  return typeof value === "string" && value !== "" ? value : null;
+}
+
+function booleanAt(body: Record<string, unknown>, key: string): boolean | null {
+  const value = body[key];
+
+  return typeof value === "boolean" ? value : null;
+}
+
+/** `undefined` is the parse failure here, because `null` is the anchor meaning "the end". */
+function anchorAt(body: Record<string, unknown>, key: string): string | null | undefined {
+  const value = body[key];
+  if (value === null) return null;
+
+  return typeof value === "string" && value !== "" ? value : undefined;
 }
 
 function asset(body: string, contentType: string): Response {

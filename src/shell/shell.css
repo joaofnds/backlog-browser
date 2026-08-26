@@ -380,3 +380,121 @@ body {
   color: var(--text-muted);
   font-size: var(--text-sm);
 }
+
+.picker-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.picker-row .picker-option {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.picker-row .action {
+  flex: 0 0 auto;
+}
+
+.picker-separator {
+  margin-top: var(--space-2);
+  padding: var(--space-2) var(--space-2) var(--space-1);
+  border-top: 1px solid var(--border-default);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.picker-footer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border-default);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  cursor: pointer;
+}
+
+.order-mode {
+  margin-left: auto;
+}
+
+.mode-pill {
+  padding: 1px var(--space-1);
+  border-radius: 3px;
+  background: var(--surface);
+  color: var(--text-default);
+}
+
+/* Dragging --------------------------------------------------------------- */
+
+.project-list > li {
+  position: relative;
+}
+
+.project.dragging {
+  opacity: 0.4;
+}
+
+.project-list > li.drop-before::before,
+.project-list > li.drop-after::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  width: 2px;
+  border-radius: 1px;
+  background: var(--accent);
+}
+
+.project-list > li.drop-before::before {
+  left: -3px;
+}
+
+.project-list > li.drop-after::after {
+  right: -3px;
+}
+
+/* Context menu ----------------------------------------------------------- */
+
+.context-menu {
+  position: fixed;
+  z-index: 20;
+  min-width: 160px;
+  padding: var(--space-1);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius);
+  background: var(--surface-raised);
+  box-shadow: 0 6px 18px rgb(0 0 0 / 18%);
+}
+
+.context-menu[hidden] {
+  display: none;
+}
+
+.menu-item {
+  display: block;
+  width: 100%;
+  padding: var(--space-1) var(--space-2);
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.menu-item:hover {
+  background: var(--surface);
+}

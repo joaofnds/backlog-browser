@@ -30,17 +30,32 @@
       <div class="placeholder" id="placeholder" role="status" aria-live="polite"></div>
     </main>
 
-    <dialog class="picker" id="picker" aria-label="Find a project">
+    <dialog class="picker" id="picker" aria-label="Find a project" closedby="any">
       <label class="visually-hidden" for="picker-input">Filter projects</label>
+      <!--
+        Not type="search". Chrome's Escape default on a search field is "clear the field", and it
+        consumes the dialog's close request, so the first Escape does nothing visible and only the
+        second one closes the picker.
+      -->
       <input
         autocomplete="off"
         class="picker-input"
         id="picker-input"
         placeholder="Filter by name or path"
-        type="search"
+        type="text"
       />
       <ul class="picker-list" id="picker-list"></ul>
+      <div class="picker-footer">
+        <label class="toggle">
+          <input id="show-hidden" type="checkbox" />
+          Show hidden
+        </label>
+        <span class="order-mode">Order: <span class="mode-pill" id="order-mode"></span></span>
+        <button class="action" id="reset-order" type="button">Reset order</button>
+      </div>
     </dialog>
+
+    <div class="context-menu" id="context-menu" role="menu" hidden></div>
 
     <script src="/shell.js" type="module"></script>
   </body>
