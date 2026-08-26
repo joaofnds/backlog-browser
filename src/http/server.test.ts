@@ -329,45 +329,6 @@ describe("hub server", () => {
     });
   });
 
-  describe("POST /api/settings", () => {
-    test("reports the cap it now holds", async () => {
-      expect(await (await driver.resize(2)).json()).toMatchObject({ maxChildren: 2 });
-    });
-
-    test("stops the children that no longer fit", async () => {
-      await addProjects("Alpha", "Beta");
-      const inventory = await driver.projects();
-      await driver.activate(slugAt(inventory, pathTo("Alpha")));
-      await driver.activate(slugAt(inventory, pathTo("Beta")));
-
-      await driver.resize(1);
-
-      expect(harness.backlog.childFor(pathTo("Alpha")).killed).toBe(true);
-      expect(harness.backlog.childFor(pathTo("Beta")).killed).toBe(false);
-    });
-
-    test("keeps the cap for the next hub run", async () => {
-      await driver.resize(7);
-
-      harness = await harness.restart();
-      driver = harness.driver();
-
-      expect((await driver.projects()).maxChildren).toBe(7);
-    });
-
-    describe("when the cap is out of range", () => {
-      test("responds 400", async () => {
-        expect((await driver.resize(0)).status).toBe(400);
-      });
-
-      test("leaves the cap alone", async () => {
-        await driver.resize(0);
-
-        expect((await driver.projects()).maxChildren).toBe(4);
-      });
-    });
-  });
-
   describe("POST /api/projects/:slug/activate", () => {
     test("reports the project as starting", async () => {
       const slug = await addAndDiscover("Alpha");

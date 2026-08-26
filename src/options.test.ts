@@ -19,18 +19,18 @@ describe("parseOptions", () => {
   test("defaults every tunable it owns", () => {
     expect(parseOptions([])).toMatchObject({
       port: 6789,
-      idleTimeoutMs: 30 * 60_000,
+      idleTimeoutMs: 5 * 60_000,
       rescan: false,
       open: true,
     });
   });
 
-  test("leaves the remembered tunables unset when their flags are absent", () => {
-    expect(parseOptions([])).toMatchObject({ depth: null, maxChildren: null });
+  test("leaves the remembered depth unset when its flag is absent", () => {
+    expect(parseOptions([])).toMatchObject({ depth: null });
   });
 
   test("documents the fallbacks the hub uses when nothing is remembered", () => {
-    expect(DEFAULTS).toMatchObject({ depth: 5, maxChildren: 5 });
+    expect(DEFAULTS).toMatchObject({ depth: 5, idleTimeoutMinutes: 5 });
   });
 
   test("overrides the hub port", () => {
@@ -39,10 +39,6 @@ describe("parseOptions", () => {
 
   test("overrides the discovery depth", () => {
     expect(parseOptions(["--depth", "5"]).depth).toEqual(5);
-  });
-
-  test("overrides the warm child cap", () => {
-    expect(parseOptions(["--max-children", "8"]).maxChildren).toEqual(8);
   });
 
   test("reads the idle timeout as minutes", () => {
@@ -79,14 +75,6 @@ describe("parseOptions", () => {
 
     test("rejects a depth above the settings ceiling", () => {
       expect(() => parseOptions(["--depth", "21"])).toThrow(/--depth/);
-    });
-
-    test("rejects a child cap below one", () => {
-      expect(() => parseOptions(["--max-children", "0"])).toThrow(/--max-children/);
-    });
-
-    test("rejects a child cap above the settings ceiling", () => {
-      expect(() => parseOptions(["--max-children", "33"])).toThrow(/--max-children/);
     });
 
     test("rejects a negative idle timeout", () => {

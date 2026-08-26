@@ -13,7 +13,6 @@ import { Supervisor } from "../supervisor/supervisor.ts";
 import { startHub } from "./server.ts";
 
 const HARNESS_DEPTH = 3;
-const HARNESS_MAX_CHILDREN = 4;
 
 /** Stands in for the host's chooser: the tests say what the user chose, no window involved. */
 export class FakeChooser {
@@ -55,18 +54,15 @@ export class HubHarness {
   ) {}
 
   /**
-   * Resolves depth and the child cap the way `cli.ts` does, flag then remembered then default, so a
-   * `restart()` with no flag sees whatever the shell last chose.
+   * Resolves depth the way `cli.ts` does, flag then remembered then default, so a `restart()` with
+   * no flag sees whatever the shell last chose.
    */
   static async start(options: { depth?: number; root?: string } = {}): Promise<HubHarness> {
     const root = options.root ?? (await mkdtemp(join(tmpdir(), "backlog-browser-")));
     const store = new StateStore({ file: join(root, ".state", "state.json") });
     const remembered = await store.settings(root);
     const depth = options.depth ?? remembered.depth ?? HARNESS_DEPTH;
-    const maxChildren = remembered.maxChildren ?? HARNESS_MAX_CHILDREN;
-    await store.updateSettings(root, (settings) =>
-      settings.withDepth(depth).withMaxChildren(maxChildren),
-    );
+    await store.updateSettings(root, (settings) => settings.withDepth(depth));
 
     const cache = new DiscoveryCache({ file: join(root, ".state", "discovery.json") });
     const registry = new ProjectRegistry({ root, depth, cache });
@@ -78,7 +74,6 @@ export class HubHarness {
       launch: backlog.launch,
       probe: backlog.probe,
       portFor: rememberedPorts({ store, root, allocate: backlog.allocatePort }),
-      maxChildren,
       idleTimeoutMs: 0,
       readyTimeoutMs: 1_000,
       pollIntervalMs: 0,
@@ -142,7 +137,6 @@ export type ProjectSummary = {
 export type Inventory = {
   root: string;
   depth: number;
-  maxChildren: number;
   active: string | null;
   mode: "default" | "manual";
   projects: ProjectSummary[];
@@ -165,10 +159,6 @@ export class HubDriver {
 
   async refreshing(depth?: number): Promise<Response> {
     return this.post("/api/refresh", depth === undefined ? {} : { depth });
-  }
-
-  async resize(maxChildren: number): Promise<Response> {
-    return this.post("/api/settings", { maxChildren });
   }
 
   async chooseFolder(): Promise<Response> {

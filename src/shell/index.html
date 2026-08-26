@@ -26,9 +26,6 @@
         <button class="action" id="refresh-button" type="button" title="Re-run discovery">
           Refresh
         </button>
-        <button class="action" id="settings-button" type="button" title="Hub settings">
-          Settings
-        </button>
       </div>
     </header>
 
@@ -77,28 +74,6 @@
         <div class="sheet-actions">
           <button class="action" data-close type="button">Cancel</button>
           <button class="action action-primary" type="submit">Refresh</button>
-        </div>
-      </form>
-    </dialog>
-
-    <dialog class="sheet" id="settings-dialog" aria-labelledby="settings-heading" closedby="any">
-      <form class="sheet-form" id="settings-form" method="dialog">
-        <h2 class="sheet-heading" id="settings-heading">Settings</h2>
-        <label class="field-label" for="settings-max-children">Boards kept running</label>
-        <input
-          class="field-input"
-          id="settings-max-children"
-          max="32"
-          min="1"
-          step="1"
-          type="number"
-        />
-        <p class="field-note">
-          Switching to a project past this number stops the board you used least recently.
-        </p>
-        <div class="sheet-actions">
-          <button class="action" data-close type="button">Cancel</button>
-          <button class="action action-primary" type="submit">Save</button>
         </div>
       </form>
     </dialog>

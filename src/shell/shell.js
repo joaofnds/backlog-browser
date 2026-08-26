@@ -1,7 +1,7 @@
 /**
  * @typedef {{ slug: string, name: string, path: string, hidden: boolean, added: boolean }} ProjectSummary
  * @typedef {"default" | "manual"} OrderMode
- * @typedef {{ root: string, depth: number, maxChildren: number, active: string | null, mode: OrderMode, projects: ProjectSummary[] }} Inventory
+ * @typedef {{ root: string, depth: number, active: string | null, mode: OrderMode, projects: ProjectSummary[] }} Inventory
  * @typedef {{ status: string, url?: string, error?: string, stderr?: string }} Activation
  * @typedef {{ kind: "chosen", path: string } | { kind: "cancelled" }} ChosenFolder
  */
@@ -26,8 +26,6 @@ const picker = /** @type {HTMLDialogElement} */ (must("picker"));
 const refreshDepth = /** @type {HTMLInputElement} */ (must("refresh-depth"));
 const refreshDialog = /** @type {HTMLDialogElement} */ (must("refresh-dialog"));
 const refreshNote = must("refresh-note");
-const settingsDialog = /** @type {HTMLDialogElement} */ (must("settings-dialog"));
-const settingsMaxChildren = /** @type {HTMLInputElement} */ (must("settings-max-children"));
 const pickerInput = /** @type {HTMLInputElement} */ (must("picker-input"));
 const pickerList = must("picker-list");
 const placeholder = must("placeholder");
@@ -40,7 +38,7 @@ const POLL_INTERVAL_MS = 400;
 const STATUS_POLL_MS = 2_000;
 
 /** @type {Inventory} */
-let inventory = { root: "", depth: 0, maxChildren: 1, active: null, mode: "default", projects: [] };
+let inventory = { root: "", depth: 0, active: null, mode: "default", projects: [] };
 /** @type {string | null} */
 let activeSlug = null;
 /** @type {Activation | null} */
@@ -349,7 +347,6 @@ function showBoard(slug, url) {
 function reveal(slug) {
   for (const [other, otherFrame] of frames) otherFrame.hidden = other !== slug;
   placeholder.hidden = true;
-  evictFrames();
 }
 
 /**
@@ -377,11 +374,13 @@ function frameFor(slug, url) {
   return frame;
 }
 
-function evictFrames() {
-  while (frames.size > inventory.maxChildren) {
-    const [oldest, frame] = /** @type {[string, HTMLIFrameElement]} */ ([...frames][0]);
-    frame.remove();
-    frames.delete(oldest);
+/**
+ * A frame outlives its child unless something drops it: the hub gives a restarted child the port it
+ * had, so `frameFor` would match on `src` and re-reveal the document the stopped child served.
+ */
+function dropStoppedFrames() {
+  for (const slug of [...frames.keys()]) {
+    if (statuses.get(slug) !== "ready") dropFrame(slug);
   }
 }
 
@@ -478,6 +477,7 @@ async function pollStatus() {
 
   patchDots();
   restageIfChanged();
+  dropStoppedFrames();
   scheduleStatusPoll();
 }
 
@@ -642,18 +642,6 @@ function openRefreshDialog() {
   refreshNote.textContent = `Under ${inventory.root}`;
   refreshDialog.showModal();
   refreshDepth.select();
-}
-
-function openSettingsDialog() {
-  settingsMaxChildren.value = String(inventory.maxChildren);
-  settingsDialog.showModal();
-  settingsMaxChildren.select();
-}
-
-/** @param {number} maxChildren */
-async function saveSettings(maxChildren) {
-  await mutate("/api/settings", { maxChildren });
-  evictFrames();
 }
 
 /* Adding a project folder --------------------------------------------------- */
@@ -831,12 +819,8 @@ function movePickerSelection(step) {
 must("refresh-button").addEventListener("click", openRefreshDialog);
 must("picker-button").addEventListener("click", openPicker);
 browseButton.addEventListener("click", chooseFolder);
-must("settings-button").addEventListener("click", openSettingsDialog);
 
 must("refresh-form").addEventListener("submit", () => refresh(Number(refreshDepth.value)));
-must("settings-form").addEventListener("submit", () =>
-  saveSettings(Number(settingsMaxChildren.value)),
-);
 
 for (const button of document.querySelectorAll("[data-close]")) {
   button.addEventListener("click", () => button.closest("dialog")?.close());

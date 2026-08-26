@@ -39,7 +39,6 @@ export class Supervisor {
   private readonly launch: ChildLauncher;
   private readonly probe: ReadinessProbe;
   private readonly portFor: PortAllocator;
-  private maxChildren: number;
   private readonly idleTimeoutMs: number;
   private readonly readyTimeoutMs: number;
   private readonly pollIntervalMs: number;
@@ -53,7 +52,6 @@ export class Supervisor {
     launch: ChildLauncher;
     probe: ReadinessProbe;
     portFor: PortAllocator;
-    maxChildren: number;
     idleTimeoutMs: number;
     readyTimeoutMs: number;
     pollIntervalMs?: number;
@@ -62,7 +60,6 @@ export class Supervisor {
     this.launch = props.launch;
     this.probe = props.probe;
     this.portFor = props.portFor;
-    this.maxChildren = props.maxChildren;
     this.idleTimeoutMs = props.idleTimeoutMs;
     this.readyTimeoutMs = props.readyTimeoutMs;
     this.pollIntervalMs = props.pollIntervalMs ?? 250;
@@ -82,7 +79,6 @@ export class Supervisor {
     }
 
     if (warm) this.discard(warm);
-    this.evictDownTo(this.maxChildren - 1);
 
     const entry: Entry = {
       project,
@@ -219,26 +215,6 @@ export class Supervisor {
     }
 
     return { kind: "timeout" };
-  }
-
-  get capacity(): number {
-    return this.maxChildren;
-  }
-
-  resize(maxChildren: number): void {
-    this.maxChildren = maxChildren;
-    this.evictDownTo(maxChildren);
-  }
-
-  private evictDownTo(limit: number): void {
-    while (this.entries.size > limit) {
-      const stale = [...this.entries.values()]
-        .filter((entry) => entry.project.slug !== this.activeSlug)
-        .sort((left, right) => left.lastUsedAt - right.lastUsedAt)[0];
-      if (!stale) return;
-
-      this.discard(stale);
-    }
   }
 
   private discard(entry: Entry): void {

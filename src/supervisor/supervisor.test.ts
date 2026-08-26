@@ -6,7 +6,6 @@ import { Supervisor } from "./supervisor.ts";
 
 const alpha = new Project({ path: "/code/alpha", name: "Alpha" });
 const beta = new Project({ path: "/code/beta", name: "Beta" });
-const gamma = new Project({ path: "/code/gamma", name: "Gamma" });
 
 let backlog: FakeBacklog;
 let clock: number;
@@ -16,8 +15,7 @@ function supervisorWith(overrides: Partial<ConstructorParameters<typeof Supervis
     launch: backlog.launch,
     probe: backlog.probe,
     portFor: backlog.portFor,
-    maxChildren: 4,
-    idleTimeoutMs: 30 * 60_000,
+    idleTimeoutMs: 5 * 60_000,
     readyTimeoutMs: 1_000,
     pollIntervalMs: 0,
     now: () => clock,
@@ -93,55 +91,15 @@ describe("Supervisor", () => {
     expect(supervisor.statusOf(alpha).status).toEqual("ready");
   });
 
-  describe("the child cap", () => {
-    test("stops the least recently used child beyond the cap", async () => {
-      const supervisor = supervisorWith({ maxChildren: 2 });
-      await activateReady(supervisor, alpha);
-      clock += 1;
-      await activateReady(supervisor, beta);
+  test("keeps every activated child warm, however many there are", async () => {
+    const supervisor = supervisorWith();
+    const projects = ["one", "two", "three", "four", "five", "six"].map(
+      (name) => new Project({ path: `/code/${name}`, name }),
+    );
 
-      clock += 1;
-      await supervisor.activate(gamma);
+    for (const project of projects) await activateReady(supervisor, project);
 
-      expect(backlog.childFor(alpha.path).killed).toBe(true);
-      expect(backlog.childFor(beta.path).killed).toBe(false);
-    });
-
-    test("stops the children that no longer fit a smaller cap", async () => {
-      const supervisor = supervisorWith({ maxChildren: 3 });
-      await activateReady(supervisor, alpha);
-      clock += 1;
-      await activateReady(supervisor, beta);
-      clock += 1;
-      await activateReady(supervisor, gamma);
-
-      supervisor.resize(1);
-
-      expect(backlog.childFor(alpha.path).killed).toBe(true);
-      expect(backlog.childFor(beta.path).killed).toBe(true);
-      expect(backlog.childFor(gamma.path).killed).toBe(false);
-    });
-
-    test("keeps every child when the cap grows", async () => {
-      const supervisor = supervisorWith({ maxChildren: 2 });
-      await activateReady(supervisor, alpha);
-      clock += 1;
-      await activateReady(supervisor, beta);
-
-      supervisor.resize(4);
-
-      expect(backlog.live).toHaveLength(2);
-    });
-
-    test("forgets the evicted project's status", async () => {
-      const supervisor = supervisorWith({ maxChildren: 1 });
-      await activateReady(supervisor, alpha);
-
-      clock += 1;
-      await supervisor.activate(beta);
-
-      expect(supervisor.statusOf(alpha).status).toEqual("idle");
-    });
+    expect(backlog.live).toHaveLength(projects.length);
   });
 
   describe("when the child exits before it is ready", () => {

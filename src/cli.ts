@@ -42,10 +42,7 @@ async function main(argv: string[]): Promise<void> {
   const store = StateStore.default();
   const remembered = await store.settings(options.root);
   const depth = options.depth ?? remembered.depth ?? DEFAULTS.depth;
-  const maxChildren = options.maxChildren ?? remembered.maxChildren ?? DEFAULTS.maxChildren;
-  await store.updateSettings(options.root, (settings) =>
-    settings.withDepth(depth).withMaxChildren(maxChildren),
-  );
+  await store.updateSettings(options.root, (settings) => settings.withDepth(depth));
 
   const registry = new ProjectRegistry({
     root: options.root,
@@ -59,7 +56,6 @@ async function main(argv: string[]): Promise<void> {
     launch: backlogLauncher(backlog.binary),
     probe: probeBacklogConfig,
     portFor: rememberedPorts({ store, root: options.root, allocate: allocatePort }),
-    maxChildren,
     idleTimeoutMs: options.idleTimeoutMs,
     readyTimeoutMs: READY_TIMEOUT_MS,
   });

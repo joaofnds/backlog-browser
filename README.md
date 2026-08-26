@@ -46,8 +46,7 @@ CSP `frame-ancestors`, which is what makes the iframe work.
 backlog-browser [root]
   --port <n>           hub port (default 6789)
   --depth <n>          discovery depth (default 5, remembered per root)
-  --max-children <n>   warm child servers (default 5, remembered per root)
-  --idle-timeout <m>   minutes before a child is stopped (default 30, 0 = never)
+  --idle-timeout <m>   minutes before a child is stopped (default 5, 0 = never)
   --rescan             walk the tree at startup instead of using the cache
   --no-open            do not open the browser
 ```
@@ -56,10 +55,9 @@ A directory is a project when it holds `backlog/config.yml`. Discovery walks `ro
 levels, skipping `node_modules`, `.git`, `target`, `dist`, `build`, `vendor`, `.venv` and any
 dotted directory, and does not descend into a project once found. There is no filesystem watching.
 
-`--depth` and `--max-children` are startup seeds, not fixed settings. Both are editable from the
-toolbar and remembered per root in `state.json`. Passing a flag replaces the remembered value for
-that root and for every run after it; with no flag the remembered value wins, and with neither, the
-built-in default.
+`--depth` is a startup seed, not a fixed setting. It is editable from the toolbar and remembered per
+root in `state.json`. Passing the flag replaces the remembered value for that root and for every run
+after it; with no flag the remembered value wins, and with neither, the built-in default.
 
 ## The discovery cache
 
@@ -128,12 +126,18 @@ inputs) first. Injecting a listener into the child is deliberately out of scope.
 
 A child starts on the first switch to its project and stays warm afterwards, so switching back is
 instant. A project is ready once its `/api/config` answers 200 within 15 s; until then the toolbar
-shows "starting". Beyond the warm-child cap the least recently used child is stopped, and any child
-left untouched for `--idle-timeout` minutes is stopped too.
+shows "starting". Nothing caps how many run at once: a child is stopped once it has gone
+`--idle-timeout` minutes untouched, and the project on screen is never swept. The sweep ticks once a
+minute, so a child outlives its timeout by up to a minute.
 
-The cap is **Settings** in the toolbar, seeded by `--max-children`. Lowering it stops the children
-that no longer fit right away. The shell keeps one iframe per warm child and reads the cap from the
-hub, so the two cannot drift apart. If a child dies, the frame shows its
+Time is the only bound, so the memory in play is whatever you opened in the last few minutes.
+Measured on this machine against backlog.md 1.50.1, one child is a `node` wrapper plus the real
+server, about 140 MB together, so five warm boards cost roughly 700 MB. `--idle-timeout 0` still
+means never, and nothing else holds the count down.
+
+The shell keeps one iframe per warm child and drops it as soon as the 2s status poll sees that child
+stop. The hub hands a restarted child the port it had, so a frame left behind would match on `src`
+and be re-revealed showing the document the dead child served. If a child dies, the frame shows its
 last stderr lines and a Retry button; the hub never restarts it on its own.
 
 `backlog` on `PATH` may be a wrapper that runs the real server as a grandchild, so each child gets

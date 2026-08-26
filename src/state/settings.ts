@@ -1,6 +1,5 @@
 export const SETTING_BOUNDS = {
   depth: { minimum: 1, maximum: 20 },
-  maxChildren: { minimum: 1, maximum: 32 },
 } as const;
 
 export type SettingBounds = { minimum: number; maximum: number };
@@ -11,36 +10,27 @@ export type SettingBounds = { minimum: number; maximum: number };
  */
 export class HubSettings {
   readonly depth: number | null;
-  readonly maxChildren: number | null;
 
-  constructor(props: { depth: number | null; maxChildren: number | null }) {
+  constructor(props: { depth: number | null }) {
     this.depth = props.depth;
-    this.maxChildren = props.maxChildren;
   }
 
   static empty(): HubSettings {
-    return new HubSettings({ depth: null, maxChildren: null });
+    return new HubSettings({ depth: null });
   }
 
   static from(value: unknown): HubSettings {
     const stored = fieldOf(value, "settings");
 
-    return new HubSettings({
-      depth: within(fieldOf(stored, "depth"), SETTING_BOUNDS.depth),
-      maxChildren: within(fieldOf(stored, "maxChildren"), SETTING_BOUNDS.maxChildren),
-    });
+    return new HubSettings({ depth: within(fieldOf(stored, "depth"), SETTING_BOUNDS.depth) });
   }
 
   withDepth(depth: number): HubSettings {
-    return new HubSettings({ depth, maxChildren: this.maxChildren });
+    return new HubSettings({ depth });
   }
 
-  withMaxChildren(maxChildren: number): HubSettings {
-    return new HubSettings({ depth: this.depth, maxChildren });
-  }
-
-  toJSON(): { depth: number | null; maxChildren: number | null } {
-    return { depth: this.depth, maxChildren: this.maxChildren };
+  toJSON(): { depth: number | null } {
+    return { depth: this.depth };
   }
 }
 

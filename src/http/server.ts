@@ -27,7 +27,7 @@ export function startHub(options: {
       "/": asset(shellHtml, "text/html; charset=utf-8"),
       "/shell.css": asset(shellCss, "text/css; charset=utf-8"),
       "/shell.js": asset(shellJs, "text/javascript; charset=utf-8"),
-      "/api/projects": async () => json(await inventoryOf(registry, store, supervisor)),
+      "/api/projects": async () => json(await inventoryOf(registry, store)),
       "/api/projects/:slug": (request) => {
         const project = registry.find(request.params.slug);
         if (!project) return json({ error: "unknown project" }, 404);
@@ -59,23 +59,7 @@ export function startHub(options: {
           }
           await registry.refresh(depth ?? undefined);
 
-          return json(await inventoryOf(registry, store, supervisor));
-        },
-      },
-      "/api/settings": {
-        POST: async (request) => {
-          const body = await bodyOf(request);
-          const maxChildren = within(body.maxChildren, SETTING_BOUNDS.maxChildren);
-          if (maxChildren === null) {
-            return json({ error: outOfRange("maxChildren", SETTING_BOUNDS.maxChildren) }, 400);
-          }
-
-          supervisor.resize(maxChildren);
-          await store.updateSettings(registry.root, (settings) =>
-            settings.withMaxChildren(maxChildren),
-          );
-
-          return json(await inventoryOf(registry, store, supervisor));
+          return json(await inventoryOf(registry, store));
         },
       },
       "/api/choose-folder": {
@@ -103,7 +87,7 @@ export function startHub(options: {
           );
           await registry.adopt(list.added);
 
-          return json(await inventoryOf(registry, store, supervisor));
+          return json(await inventoryOf(registry, store));
         },
       },
       "/api/list/hidden": {
@@ -117,7 +101,7 @@ export function startHub(options: {
             hidden ? list.hide(path) : list.show(path),
           );
 
-          return json(await inventoryOf(registry, store, supervisor));
+          return json(await inventoryOf(registry, store));
         },
       },
       "/api/list/order": {
@@ -131,14 +115,14 @@ export function startHub(options: {
             list.move({ path, before, discovered: registry.all() }),
           );
 
-          return json(await inventoryOf(registry, store, supervisor));
+          return json(await inventoryOf(registry, store));
         },
       },
       "/api/list/reset": {
         POST: async () => {
           await store.updateList(registry.root, (list) => list.reset());
 
-          return json(await inventoryOf(registry, store, supervisor));
+          return json(await inventoryOf(registry, store));
         },
       },
     },
@@ -146,14 +130,13 @@ export function startHub(options: {
   });
 }
 
-async function inventoryOf(registry: ProjectRegistry, store: StateStore, supervisor: Supervisor) {
+async function inventoryOf(registry: ProjectRegistry, store: StateStore) {
   const list = await store.list(registry.root);
   const kept = keptByHand(list.added, registry.walked());
 
   return {
     root: registry.root,
     depth: registry.depth,
-    maxChildren: supervisor.capacity,
     active: await store.lastActive(registry.root),
     mode: list.mode,
     projects: list.arrange(registry.all()).map((listed) => describe(listed, kept)),
