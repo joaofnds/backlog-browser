@@ -5,7 +5,6 @@ export type OrderMode = "default" | "manual";
 export type ListedProject = {
   readonly project: Project;
   readonly hidden: boolean;
-  readonly added: boolean;
 };
 
 export class ProjectList {
@@ -48,13 +47,12 @@ export class ProjectList {
 
   arrange(discovered: readonly Project[]): ListedProject[] {
     const hidden = new Set(this.hidden);
-    const added = new Set(this.added);
     const visible = discovered.filter((project) => !hidden.has(project.path));
     const concealed = discovered.filter((project) => hidden.has(project.path));
 
     return [
-      ...this.sequence(visible).map((project) => list(project, false, added)),
-      ...concealed.map((project) => list(project, true, added)),
+      ...this.sequence(visible).map((project) => ({ project, hidden: false })),
+      ...concealed.map((project) => ({ project, hidden: true })),
     ];
   }
 
@@ -152,10 +150,6 @@ export class ProjectList {
 
     return discovered.filter((project) => !hidden.has(project.path)).map((project) => project.path);
   }
-}
-
-function list(project: Project, hidden: boolean, added: ReadonlySet<string>): ListedProject {
-  return { project, hidden, added: added.has(project.path) };
 }
 
 function strings(value: unknown): string[] {

@@ -145,6 +145,7 @@ export function startHub(options: {
 
 async function inventoryOf(registry: ProjectRegistry, store: StateStore, supervisor: Supervisor) {
   const list = await store.list(registry.root);
+  const kept = keptByHand(list.added, registry.walked());
 
   return {
     root: registry.root,
@@ -152,8 +153,16 @@ async function inventoryOf(registry: ProjectRegistry, store: StateStore, supervi
     maxChildren: supervisor.capacity,
     active: await store.lastActive(registry.root),
     mode: list.mode,
-    projects: list.arrange(registry.all()).map(describe),
+    projects: list.arrange(registry.all()).map((listed) => describe(listed, kept)),
   };
+}
+
+/**
+ * A path the user added and a later walk then reached is an ordinary discovered project: dropping
+ * it from the added set would not remove it, so the shell must not offer to.
+ */
+function keptByHand(added: readonly string[], walked: ReadonlySet<string>): ReadonlySet<string> {
+  return new Set(added.filter((path) => !walked.has(path)));
 }
 
 function outOfRange(field: string, bounds: SettingBounds): string {
@@ -166,13 +175,13 @@ function statusesOf(registry: ProjectRegistry, supervisor: Supervisor) {
   );
 }
 
-function describe(listed: ListedProject) {
+function describe(listed: ListedProject, kept: ReadonlySet<string>) {
   return {
     slug: listed.project.slug,
     name: listed.project.name,
     path: listed.project.path,
     hidden: listed.hidden,
-    added: listed.added,
+    added: kept.has(listed.project.path),
   };
 }
 

@@ -56,9 +56,10 @@ A directory is a project when it holds `backlog/config.yml`. Discovery walks `ro
 levels, skipping `node_modules`, `.git`, `target`, `dist`, `build`, `vendor`, `.venv` and any
 dotted directory, and does not descend into a project once found. There is no filesystem watching.
 
-`--depth` and `--max-children` are startup defaults, not fixed settings. Both are editable from the
-toolbar and remembered per root in `state.json`, so a flag seeds the value on a run that passes it
-and the remembered one wins on a run that does not.
+`--depth` and `--max-children` are startup seeds, not fixed settings. Both are editable from the
+toolbar and remembered per root in `state.json`. Passing a flag replaces the remembered value for
+that root and for every run after it; with no flag the remembered value wins, and with neither, the
+built-in default.
 
 ## The discovery cache
 
@@ -92,6 +93,10 @@ Added projects live in `state.json` rather than the discovery cache, because a w
 cache and nothing in a walk would put them back. They survive Refresh and restarts, they sit in
 the list next to discovered projects, and a right-click on the pill offers to remove one again. A
 folder with no `backlog/config.yml` is refused.
+
+Adding a project a walk would have found anyway is harmless: it is listed once, and once a walk
+reaches it the hub stops marking it added, so the remove option disappears rather than offering to
+drop a project it cannot drop.
 
 Measured on this machine, `~` at depth 5: a cold walk takes 265 ms, a cached load takes under a
 millisecond, and a forced `Refresh` takes 199 ms.

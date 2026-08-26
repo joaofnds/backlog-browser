@@ -292,6 +292,15 @@ describe("hub server", () => {
       expect(inventory.projects[0]).toMatchObject({ added: true });
     });
 
+    test("stops marking it as added once a walk reaches it too", async () => {
+      const path = await harness.addProject("Shallow", "shallow");
+      await driver.addPath(path);
+
+      const inventory = await driver.refresh();
+
+      expect(inventory.projects[0]).toMatchObject({ name: "Shallow", added: false });
+    });
+
     test("leaves a walked project unmarked", async () => {
       await addProjects("Alpha");
 

@@ -54,6 +54,11 @@ export class ProjectRegistry {
     return this.all();
   }
 
+  /** The paths the walk produced. Everything else in `all()` is there because the user added it. */
+  walked(): ReadonlySet<string> {
+    return new Set(this.discovered.map((project) => project.path));
+  }
+
   all(): readonly Project[] {
     const known = new Set(this.discovered.map((project) => project.path));
 
