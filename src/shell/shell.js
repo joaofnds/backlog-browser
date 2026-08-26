@@ -3,8 +3,7 @@
  * @typedef {"default" | "manual"} OrderMode
  * @typedef {{ root: string, depth: number, maxChildren: number, active: string | null, mode: OrderMode, projects: ProjectSummary[] }} Inventory
  * @typedef {{ status: string, url?: string, error?: string, stderr?: string }} Activation
- * @typedef {{ name: string, path: string, project: boolean }} DirectoryEntry
- * @typedef {{ path: string, parent: string | null, project: boolean, entries: DirectoryEntry[] }} Listing
+ * @typedef {{ kind: "chosen", path: string } | { kind: "cancelled" }} PickedFolder
  */
 
 /** @param {string} id */
@@ -15,13 +14,10 @@ function must(id) {
   return node;
 }
 
-const browseAdd = /** @type {HTMLButtonElement} */ (must("browse-add"));
-const browseDialog = /** @type {HTMLDialogElement} */ (must("browse-dialog"));
-const browseError = must("browse-error");
-const browseList = must("browse-list");
-const browsePath = must("browse-path");
-const browseUp = /** @type {HTMLButtonElement} */ (must("browse-up"));
+const browseButton = /** @type {HTMLButtonElement} */ (must("browse-button"));
 const contextMenu = must("context-menu");
+const notice = /** @type {HTMLDialogElement} */ (must("notice"));
+const noticeDetail = must("notice-detail");
 const orderMode = must("order-mode");
 const overflow = must("overflow");
 const overflowList = must("overflow-list");
@@ -61,8 +57,6 @@ let dragging = null;
 
 /** @type {Map<string, HTMLIFrameElement>} */
 const frames = new Map();
-/** @type {Listing | null} */
-let listing = null;
 
 /* The list ----------------------------------------------------------------- */
 
@@ -662,93 +656,49 @@ async function saveSettings(maxChildren) {
   evictFrames();
 }
 
-/* Folder browser ------------------------------------------------------------ */
-
-async function openBrowseDialog() {
-  browseError.hidden = true;
-  await browseTo(listing?.path ?? inventory.root);
-  browseDialog.showModal();
-}
-
-/** @param {string} path */
-async function browseTo(path) {
-  const response = await fetch(`/api/browse?path=${encodeURIComponent(path)}`).catch(() => null);
-  if (!response?.ok) return showBrowseError(`Could not read ${path}.`);
-
-  listing = await response.json();
-  browseError.hidden = true;
-  renderBrowse();
-}
-
-function renderBrowse() {
-  if (listing === null) return;
-
-  browsePath.textContent = listing.path;
-  browseUp.disabled = listing.parent === null;
-  browseAdd.disabled = !listing.project;
-  browseList.replaceChildren(...listing.entries.map(browseRow));
-}
-
-/** @param {DirectoryEntry} entry */
-function browseRow(entry) {
-  const option = document.createElement("button");
-  option.className = "picker-option browse-entry";
-  option.type = "button";
-  option.append(entry.name);
-  if (entry.project) option.append(badge("board"));
-  option.addEventListener("click", () => browseTo(entry.path));
-
-  const item = document.createElement("li");
-  item.className = "picker-row";
-  item.append(option);
-  if (entry.project) item.append(addButton(entry.path));
-
-  return item;
-}
-
-/** @param {string} text */
-function badge(text) {
-  const node = element("span", text);
-  node.className = "browse-badge";
-
-  return node;
-}
-
-/** @param {string} path */
-function addButton(path) {
-  const button = document.createElement("button");
-  button.className = "action";
-  button.type = "button";
-  button.textContent = "Add";
-  button.addEventListener("click", (event) => {
-    event.stopPropagation();
-    addFolder(path);
-  });
-
-  return button;
-}
+/* Adding a project folder --------------------------------------------------- */
 
 /**
- * The added path never comes back from a walk, so the hub keeps it in the list itself. Switching to
- * it on the way out is what makes the button feel like it opened the project rather than filed it.
- *
- * @param {string} path
+ * The picker is the host's, opened by the hub, because a page cannot learn an absolute path from
+ * one of its own. The button stays disabled meanwhile: the dialog is modal on the desktop, so a
+ * second click would queue a second one behind it.
  */
+async function pickFolder() {
+  browseButton.disabled = true;
+  try {
+    const response = await fetch("/api/pick-folder", { method: "POST" }).catch(() => null);
+    if (!response?.ok) return showNotice(await reasonFrom(response));
+
+    /** @type {PickedFolder} */
+    const picked = await response.json();
+    if (picked.kind === "chosen") await addFolder(picked.path);
+  } finally {
+    browseButton.disabled = false;
+  }
+}
+
+/** @param {Response | null} response */
+async function reasonFrom(response) {
+  if (response === null) return "The hub did not answer.";
+
+  const body = await response.json().catch(() => null);
+
+  return body?.error ?? "The folder picker failed.";
+}
+
+/** @param {string} path */
 async function addFolder(path) {
   const response = await fetch("/api/list/added", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ path, added: true }),
   }).catch(() => null);
-  if (!response?.ok) {
-    return showBrowseError(`No backlog/config.yml in ${path}.`);
-  }
+  if (!response?.ok) return showNotice(`No backlog/config.yml in ${path}.`);
 
   inventory = await response.json();
   await loadStatuses();
   renderToolbar();
   renderPicker();
-  browseDialog.close();
 
   const added = inventory.projects.find((project) => project.path === path);
   if (added) switchTo(added.slug);
@@ -768,9 +718,9 @@ async function removeProject(project) {
 }
 
 /** @param {string} detail */
-function showBrowseError(detail) {
-  browseError.textContent = detail;
-  browseError.hidden = false;
+function showNotice(detail) {
+  noticeDetail.textContent = detail;
+  notice.showModal();
 }
 
 /* Picker ------------------------------------------------------------------- */
@@ -880,21 +830,13 @@ function movePickerSelection(step) {
 
 must("refresh-button").addEventListener("click", openRefreshDialog);
 must("picker-button").addEventListener("click", openPicker);
-must("browse-button").addEventListener("click", openBrowseDialog);
+browseButton.addEventListener("click", pickFolder);
 must("settings-button").addEventListener("click", openSettingsDialog);
 
 must("refresh-form").addEventListener("submit", () => refresh(Number(refreshDepth.value)));
 must("settings-form").addEventListener("submit", () =>
   saveSettings(Number(settingsMaxChildren.value)),
 );
-
-browseUp.addEventListener("click", () => {
-  if (listing?.parent) browseTo(listing.parent);
-});
-
-browseAdd.addEventListener("click", () => {
-  if (listing !== null) addFolder(listing.path);
-});
 
 for (const button of document.querySelectorAll("[data-close]")) {
   button.addEventListener("click", () => button.closest("dialog")?.close());

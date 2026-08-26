@@ -39,10 +39,6 @@ export async function readProjects(paths: readonly string[]): Promise<Project[]>
   return found.filter((project) => project !== null).sort(Project.byName);
 }
 
-export async function isProject(directory: string): Promise<boolean> {
-  return Bun.file(join(directory, "backlog", "config.yml")).exists();
-}
-
 export async function readProject(path: string): Promise<Project | null> {
   const name = await projectNameAt(path);
 

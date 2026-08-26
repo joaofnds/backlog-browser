@@ -20,7 +20,7 @@
         <button class="action" id="picker-button" type="button" title="Find a project (Ctrl/Cmd+K)">
           Find
         </button>
-        <button class="action" id="browse-button" type="button" title="Add a project by folder">
+        <button class="action" id="browse-button" type="button" title="Add a project folder">
           Add
         </button>
         <button class="action" id="refresh-button" type="button" title="Re-run discovery">
@@ -103,17 +103,14 @@
       </form>
     </dialog>
 
-    <dialog class="sheet" id="browse-dialog" aria-labelledby="browse-heading" closedby="any">
-      <h2 class="sheet-heading" id="browse-heading">Add a project folder</h2>
-      <p class="browse-path" id="browse-path"></p>
-      <ul class="picker-list" id="browse-list"></ul>
-      <p class="field-note field-error" id="browse-error" hidden></p>
-      <div class="sheet-actions">
-        <button class="action" id="browse-up" type="button">Up</button>
-        <span class="sheet-spacer"></span>
-        <button class="action" data-close type="button">Cancel</button>
-        <button class="action action-primary" id="browse-add" type="button">Add this folder</button>
-      </div>
+    <dialog class="sheet" id="notice" aria-labelledby="notice-heading" closedby="any">
+      <form class="sheet-form" method="dialog">
+        <h2 class="sheet-heading" id="notice-heading">Could not add that folder</h2>
+        <p class="field-note" id="notice-detail"></p>
+        <div class="sheet-actions">
+          <button class="action action-primary" type="submit">OK</button>
+        </div>
+      </form>
     </dialog>
 
     <div class="context-menu" id="context-menu" role="menu" hidden></div>

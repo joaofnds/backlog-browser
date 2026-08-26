@@ -46,7 +46,7 @@ CSP `frame-ancestors`, which is what makes the iframe work.
 backlog-browser [root]
   --port <n>           hub port (default 6789)
   --depth <n>          discovery depth (default 5, remembered per root)
-  --max-children <n>   warm child servers (default 4, remembered per root)
+  --max-children <n>   warm child servers (default 5, remembered per root)
   --idle-timeout <m>   minutes before a child is stopped (default 30, 0 = never)
   --rescan             walk the tree at startup instead of using the cache
   --no-open            do not open the browser
@@ -85,9 +85,14 @@ and pay for a cold walk each time.
 ## Adding a project by hand
 
 A project nested below the discovery depth is unreachable no matter how often you Refresh, and
-raising `--depth` to reach it slows every walk under that root. **Add** in the toolbar opens a
-folder browser instead: it lists one directory level per request, marks the directories that hold a
-board, and adds the one you pick straight to the list.
+raising `--depth` to reach it slows every walk under that root. **Add** in the toolbar opens the
+macOS folder chooser instead, starting at the root, and adds whatever you pick.
+
+The dialog belongs to the hub, not the page: a browser hands a page no absolute filesystem path
+from either `webkitdirectory` or `showDirectoryPicker`, so the hub shells out to
+`osascript -e 'POSIX path of (choose folder ...)'` and the page receives the path it returns.
+That also means the picker only exists where the hub runs; on anything but macOS, Add reports that
+the platform has no picker.
 
 Added projects live in `state.json` rather than the discovery cache, because a walk rewrites that
 cache and nothing in a walk would put them back. They survive Refresh and restarts, they sit in

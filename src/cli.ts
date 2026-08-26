@@ -1,5 +1,6 @@
 #!/usr/bin/env bun
 import { DiscoveryCache } from "./discovery/cache.ts";
+import { nativeFolderPicker } from "./discovery/pick-folder.ts";
 import { ProjectRegistry } from "./discovery/registry.ts";
 import { startHub } from "./http/server.ts";
 import {
@@ -63,7 +64,13 @@ async function main(argv: string[]): Promise<void> {
     readyTimeoutMs: READY_TIMEOUT_MS,
   });
 
-  const server = listen({ registry, store, supervisor, port: options.port });
+  const server = listen({
+    registry,
+    store,
+    supervisor,
+    pickFolder: nativeFolderPicker,
+    port: options.port,
+  });
   if (server === null) return;
 
   const sweep = setInterval(() => supervisor.stopIdle(), IDLE_SWEEP_MS);

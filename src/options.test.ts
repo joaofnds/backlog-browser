@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { resolve } from "node:path";
 
-import { parseOptions, UsageError } from "./options.ts";
+import { DEFAULTS, parseOptions, UsageError } from "./options.ts";
 
 describe("parseOptions", () => {
   test("defaults the root to the current directory", () => {
@@ -27,6 +27,10 @@ describe("parseOptions", () => {
 
   test("leaves the remembered tunables unset when their flags are absent", () => {
     expect(parseOptions([])).toMatchObject({ depth: null, maxChildren: null });
+  });
+
+  test("documents the fallbacks the hub uses when nothing is remembered", () => {
+    expect(DEFAULTS).toMatchObject({ depth: 5, maxChildren: 5 });
   });
 
   test("overrides the hub port", () => {

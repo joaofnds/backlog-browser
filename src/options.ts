@@ -7,7 +7,7 @@ import { SETTING_BOUNDS, type SettingBounds } from "./state/settings.ts";
 export const DEFAULTS = {
   port: 6789,
   depth: 5,
-  maxChildren: 4,
+  maxChildren: 5,
   idleTimeoutMinutes: 30,
 } as const;
 

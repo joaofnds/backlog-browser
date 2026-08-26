@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { DiscoveryCache } from "../discovery/cache.ts";
+import type { PickedFolder } from "../discovery/pick-folder.ts";
 import type { Project } from "../discovery/project.ts";
 import { ProjectRegistry } from "../discovery/registry.ts";
 import { rememberedPorts } from "../state/remembered-ports.ts";
@@ -14,12 +15,41 @@ import { startHub } from "./server.ts";
 const HARNESS_DEPTH = 3;
 const HARNESS_MAX_CHILDREN = 4;
 
+/** Stands in for the host's picker: the tests say what the user chose, no window involved. */
+export class FakePicker {
+  readonly openedAt: string[] = [];
+  private answer: PickedFolder = { kind: "cancelled" };
+
+  chooses(path: string): void {
+    this.answer = { kind: "chosen", path };
+  }
+
+  cancels(): void {
+    this.answer = { kind: "cancelled" };
+  }
+
+  breaks(reason: string): void {
+    this.answer = { kind: "unavailable", reason };
+  }
+
+  fails(reason: string): void {
+    this.answer = { kind: "failed", reason };
+  }
+
+  pick = async ({ startAt }: { startAt: string }): Promise<PickedFolder> => {
+    this.openedAt.push(startAt);
+
+    return this.answer;
+  };
+}
+
 export class HubHarness {
   private constructor(
     readonly root: string,
     private readonly registry: ProjectRegistry,
     readonly store: StateStore,
     readonly backlog: FakeBacklog,
+    readonly picker: FakePicker,
     readonly supervisor: Supervisor,
     private readonly server: Bun.Server<undefined>,
   ) {}
@@ -43,6 +73,7 @@ export class HubHarness {
     await registry.load();
     await registry.adopt((await store.list(root)).added);
     const backlog = new FakeBacklog();
+    const picker = new FakePicker();
     const supervisor = new Supervisor({
       launch: backlog.launch,
       probe: backlog.probe,
@@ -58,8 +89,9 @@ export class HubHarness {
       registry,
       store,
       backlog,
+      picker,
       supervisor,
-      startHub({ registry, store, supervisor, port: 0 }),
+      startHub({ registry, store, supervisor, pickFolder: picker.pick, port: 0 }),
     );
   }
 
@@ -116,13 +148,6 @@ export type Inventory = {
   projects: ProjectSummary[];
 };
 
-export type Listing = {
-  path: string;
-  parent: string | null;
-  project: boolean;
-  entries: { name: string; path: string; project: boolean }[];
-};
-
 export class HubDriver {
   constructor(readonly origin: string) {}
 
@@ -146,14 +171,8 @@ export class HubDriver {
     return this.post("/api/settings", { maxChildren });
   }
 
-  async browsing(path?: string): Promise<Response> {
-    return this.get(
-      path === undefined ? "/api/browse" : `/api/browse?path=${encodeURIComponent(path)}`,
-    );
-  }
-
-  async browse(path?: string): Promise<Listing> {
-    return (await this.browsing(path)).json() as Promise<Listing>;
+  async pickFolder(): Promise<Response> {
+    return this.post("/api/pick-folder", {});
   }
 
   async addPath(path: string): Promise<Response> {

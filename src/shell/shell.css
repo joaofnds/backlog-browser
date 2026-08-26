@@ -434,28 +434,6 @@ body {
   color: var(--status-failed);
 }
 
-.browse-path {
-  margin: 0;
-  overflow-wrap: anywhere;
-  color: var(--text-muted);
-  font-size: var(--text-sm);
-}
-
-.browse-entry {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.browse-badge {
-  flex: 0 0 auto;
-  padding: 0 6px;
-  border-radius: var(--radius);
-  background: var(--hover-wash);
-  color: var(--text-muted);
-  font-size: var(--text-sm);
-}
-
 .picker-input,
 .field-input {
   width: 100%;

@@ -205,44 +205,44 @@ describe("hub server", () => {
     });
   });
 
-  describe("GET /api/browse", () => {
-    test("lists the root's directories when the request names no path", async () => {
-      await harness.addProject("Alpha", "alpha");
-      await harness.addProject("Beta", "beta");
+  describe("POST /api/pick-folder", () => {
+    test("opens the picker at the hub's root", async () => {
+      await driver.pickFolder();
 
-      const listing = await driver.browse();
-
-      expect(listing.entries.map((entry) => entry.name)).toEqual([".state", "alpha", "beta"]);
+      expect(harness.picker.openedAt).toEqual([harness.root]);
     });
 
-    test("marks the entries that hold a board", async () => {
-      await harness.addProject("Alpha", "alpha");
+    test("reports the folder the user chose", async () => {
+      harness.picker.chooses(join(harness.root, "somewhere"));
 
-      const listing = await driver.browse();
-
-      expect(listing.entries.find((entry) => entry.name === "alpha")?.project).toBe(true);
-      expect(listing.entries.find((entry) => entry.name === ".state")?.project).toBe(false);
+      expect(await (await driver.pickFolder()).json()).toEqual({
+        kind: "chosen",
+        path: join(harness.root, "somewhere"),
+      });
     });
 
-    test("descends one level at a time", async () => {
-      await harness.addProject("Buried", join("a", "b"));
+    test("reports a dismissed picker as cancelled", async () => {
+      harness.picker.cancels();
 
-      const listing = await driver.browse(join(harness.root, "a"));
-
-      expect(listing.entries.map((entry) => entry.name)).toEqual(["b"]);
+      expect(await (await driver.pickFolder()).json()).toEqual({ kind: "cancelled" });
     });
 
-    test("names the parent so the caller can walk back up", async () => {
-      await harness.addProject("Buried", join("a", "b"));
+    describe("when the picker itself fails", () => {
+      test("responds 500 rather than calling the platform unsupported", async () => {
+        harness.picker.fails("The folder picker closed without answering.");
 
-      const listing = await driver.browse(join(harness.root, "a"));
-
-      expect(listing.parent).toEqual(harness.root);
+        expect((await driver.pickFolder()).status).toBe(500);
+      });
     });
 
-    describe("when the directory does not exist", () => {
-      test("responds 404", async () => {
-        expect((await driver.browsing(join(harness.root, "ghost"))).status).toBe(404);
+    describe("when the host has no picker", () => {
+      test("responds 501 naming the reason", async () => {
+        harness.picker.breaks("No folder picker on linux.");
+
+        const response = await driver.pickFolder();
+
+        expect(response.status).toBe(501);
+        expect(await response.json()).toEqual({ error: "No folder picker on linux." });
       });
     });
   });
