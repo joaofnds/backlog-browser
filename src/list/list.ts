@@ -68,7 +68,11 @@ export class ProjectList {
    * a neighbour rather than an index is what lets a stored path the walk did not find keep its
    * slot: it is never named, so it rides along with whichever neighbour it sits behind.
    */
-  move(props: { path: string; before: string | null; discovered: readonly Project[] }): ProjectList {
+  move(props: {
+    path: string;
+    before: string | null;
+    discovered: readonly Project[];
+  }): ProjectList {
     if (this.hidden.includes(props.path)) return this;
 
     const seeded = this.mode === "manual" ? this.order : this.defaultOrder(props.discovered);
@@ -100,9 +104,7 @@ export class ProjectList {
     const ordered = new Set(this.order);
 
     return [
-      ...this.order
-        .map((path) => byPath.get(path))
-        .filter((project) => project !== undefined),
+      ...this.order.map((path) => byPath.get(path)).filter((project) => project !== undefined),
       ...visible.filter((project) => !ordered.has(project.path)),
     ];
   }

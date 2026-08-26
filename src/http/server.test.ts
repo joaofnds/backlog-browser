@@ -191,7 +191,10 @@ describe("hub server", () => {
 
       const inventory = await driver.hide(pathTo("Alpha"));
 
-      expect(inventory.projects.map((project) => project.path)).toEqual([pathTo("Beta"), pathTo("Alpha")]);
+      expect(inventory.projects.map((project) => project.path)).toEqual([
+        pathTo("Beta"),
+        pathTo("Alpha"),
+      ]);
     });
 
     test("keeps the hidden project reachable by slug", async () => {
@@ -228,7 +231,11 @@ describe("hub server", () => {
 
       const inventory = await driver.show(pathTo("Alpha"));
 
-      expect(pathsOf(inventory, { hidden: false })).toEqual([pathTo("Gamma"), pathTo("Beta"), pathTo("Alpha")]);
+      expect(pathsOf(inventory, { hidden: false })).toEqual([
+        pathTo("Gamma"),
+        pathTo("Beta"),
+        pathTo("Alpha"),
+      ]);
     });
 
     describe("when the body is malformed", () => {
@@ -246,7 +253,11 @@ describe("hub server", () => {
 
       const inventory = await driver.move(pathTo("Gamma"), pathTo("Alpha"));
 
-      expect(pathsOf(inventory, { hidden: false })).toEqual([pathTo("Gamma"), pathTo("Alpha"), pathTo("Beta")]);
+      expect(pathsOf(inventory, { hidden: false })).toEqual([
+        pathTo("Gamma"),
+        pathTo("Alpha"),
+        pathTo("Beta"),
+      ]);
     });
 
     test("switches the order mode to manual", async () => {
@@ -260,7 +271,11 @@ describe("hub server", () => {
 
       const inventory = await driver.move(pathTo("Alpha"), null);
 
-      expect(pathsOf(inventory, { hidden: false })).toEqual([pathTo("Beta"), pathTo("Gamma"), pathTo("Alpha")]);
+      expect(pathsOf(inventory, { hidden: false })).toEqual([
+        pathTo("Beta"),
+        pathTo("Gamma"),
+        pathTo("Alpha"),
+      ]);
     });
 
     test("appends a project discovered after the order was set", async () => {
@@ -299,7 +314,11 @@ describe("hub server", () => {
       await addProjects("Alpha", "Beta", "Gamma");
       await driver.move(pathTo("Gamma"), pathTo("Alpha"));
 
-      expect(pathsOf(await driver.resetOrder(), { hidden: false })).toEqual([pathTo("Alpha"), pathTo("Beta"), pathTo("Gamma")]);
+      expect(pathsOf(await driver.resetOrder(), { hidden: false })).toEqual([
+        pathTo("Alpha"),
+        pathTo("Beta"),
+        pathTo("Gamma"),
+      ]);
     });
 
     test("keeps hidden projects hidden", async () => {
