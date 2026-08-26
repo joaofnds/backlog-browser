@@ -9,6 +9,13 @@ import {
 
 export const MAX_PORT_ATTEMPTS = 3;
 
+/**
+ * `reuse` asks for the port this project bound last time, which is what keeps its board's
+ * `localStorage` alive across hub runs. A retry clears it, or a collision would repeat forever.
+ */
+export type PortRequest = { path: string; reuse: boolean };
+export type PortAllocator = (request: PortRequest) => Promise<number>;
+
 export type Activation =
   | { status: "idle" }
   | { status: "starting" }
@@ -31,7 +38,7 @@ type Outcome = { kind: "ready" } | Failure;
 export class Supervisor {
   private readonly launch: ChildLauncher;
   private readonly probe: ReadinessProbe;
-  private readonly allocatePort: () => Promise<number>;
+  private readonly portFor: PortAllocator;
   private readonly maxChildren: number;
   private readonly idleTimeoutMs: number;
   private readonly readyTimeoutMs: number;
@@ -45,7 +52,7 @@ export class Supervisor {
   constructor(props: {
     launch: ChildLauncher;
     probe: ReadinessProbe;
-    allocatePort: () => Promise<number>;
+    portFor: PortAllocator;
     maxChildren: number;
     idleTimeoutMs: number;
     readyTimeoutMs: number;
@@ -54,7 +61,7 @@ export class Supervisor {
   }) {
     this.launch = props.launch;
     this.probe = props.probe;
-    this.allocatePort = props.allocatePort;
+    this.portFor = props.portFor;
     this.maxChildren = props.maxChildren;
     this.idleTimeoutMs = props.idleTimeoutMs;
     this.readyTimeoutMs = props.readyTimeoutMs;
@@ -87,7 +94,7 @@ export class Supervisor {
     };
     this.entries.set(project.slug, entry);
 
-    await this.spawn(entry);
+    await this.spawn(entry, { reuse: true });
     entry.settling = this.supervise(entry, 1);
 
     return { status: "starting" };
@@ -130,8 +137,8 @@ export class Supervisor {
     this.entries.clear();
   }
 
-  private async spawn(entry: Entry): Promise<void> {
-    entry.port = await this.allocatePort();
+  private async spawn(entry: Entry, options: { reuse: boolean }): Promise<void> {
+    entry.port = await this.portFor({ path: entry.project.path, reuse: options.reuse });
     entry.child = this.launch({ cwd: entry.project.path, port: entry.port });
   }
 
@@ -148,7 +155,7 @@ export class Supervisor {
     }
 
     if (outcome.kind === "collision" && attempt < MAX_PORT_ATTEMPTS) {
-      await this.spawn(entry);
+      await this.spawn(entry, { reuse: false });
       return this.supervise(entry, attempt + 1);
     }
 

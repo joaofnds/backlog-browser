@@ -3,6 +3,7 @@ import { DiscoveryCache } from "./discovery/cache.ts";
 import { ProjectRegistry } from "./discovery/registry.ts";
 import { startHub } from "./http/server.ts";
 import { type HubOptions, parseOptions, USAGE, UsageError, wantsHelp } from "./options.ts";
+import { rememberedPorts } from "./state/remembered-ports.ts";
 import { StateStore } from "./state/store.ts";
 import { BacklogUnavailable, locateBacklog } from "./supervisor/backlog-cli.ts";
 import { allocatePort, backlogLauncher, LOOPBACK, probeBacklogConfig } from "./supervisor/child.ts";
@@ -37,16 +38,17 @@ async function main(argv: string[]): Promise<void> {
   });
   await (options.rescan ? registry.refresh() : registry.load());
 
+  const store = StateStore.default();
   const supervisor = new Supervisor({
     launch: backlogLauncher(backlog.binary),
     probe: probeBacklogConfig,
-    allocatePort,
+    portFor: rememberedPorts({ store, root: options.root, allocate: allocatePort }),
     maxChildren: options.maxChildren,
     idleTimeoutMs: options.idleTimeoutMs,
     readyTimeoutMs: READY_TIMEOUT_MS,
   });
 
-  const server = listen({ registry, store: StateStore.default(), supervisor, port: options.port });
+  const server = listen({ registry, store, supervisor, port: options.port });
   if (server === null) return;
 
   const sweep = setInterval(() => supervisor.stopIdle(), IDLE_SWEEP_MS);

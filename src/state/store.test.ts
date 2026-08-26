@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { ProjectList } from "../list/list.ts";
+import { PortBook } from "./port-book.ts";
 import { StateStore } from "./store.ts";
 
 const ROOT = "/code";
@@ -110,10 +111,82 @@ describe("StateStore", () => {
       const store = new StateStore({ file });
       const list = ProjectList.empty().hide("/code/alpha");
 
-      await Promise.all([store.remember(ROOT, "alpha-1234abcd"), store.updateList(ROOT, () => list)]);
+      await Promise.all([
+        store.remember(ROOT, "alpha-1234abcd"),
+        store.updateList(ROOT, () => list),
+      ]);
 
       expect(await store.lastActive(ROOT)).toEqual("alpha-1234abcd");
       expect(await store.list(ROOT)).toEqual(list);
+    });
+  });
+
+  describe("remembered ports", () => {
+    test("starts empty for a root that was never opened", async () => {
+      expect(await new StateStore({ file }).ports(ROOT)).toEqual(PortBook.empty());
+    });
+
+    test("hands back the port a project was given", async () => {
+      const store = new StateStore({ file });
+
+      await store.rememberPort(ROOT, "/code/alpha", 40_001);
+
+      expect((await store.ports(ROOT)).portFor("/code/alpha")).toEqual(40_001);
+    });
+
+    test("carries the ports across hub restarts", async () => {
+      await new StateStore({ file }).rememberPort(ROOT, "/code/alpha", 40_001);
+
+      expect((await new StateStore({ file }).ports(ROOT)).portFor("/code/alpha")).toEqual(40_001);
+    });
+
+    test("keeps one set of ports per root", async () => {
+      const store = new StateStore({ file });
+
+      await store.rememberPort(ROOT, "/code/alpha", 40_001);
+
+      expect(await store.ports(OTHER_ROOT)).toEqual(PortBook.empty());
+    });
+
+    test("survives activating a project", async () => {
+      const store = new StateStore({ file });
+
+      await store.rememberPort(ROOT, "/code/alpha", 40_001);
+      await store.remember(ROOT, "beta-5678efgh");
+
+      expect((await store.ports(ROOT)).portFor("/code/alpha")).toEqual(40_001);
+    });
+
+    test("survives hiding a project", async () => {
+      const store = new StateStore({ file });
+
+      await store.rememberPort(ROOT, "/code/alpha", 40_001);
+      await store.updateList(ROOT, (list) => list.hide("/code/alpha"));
+
+      expect((await store.ports(ROOT)).portFor("/code/alpha")).toEqual(40_001);
+    });
+
+    test("leaves the list alone", async () => {
+      const store = new StateStore({ file });
+      const list = ProjectList.empty().hide("/code/alpha");
+
+      await store.updateList(ROOT, () => list);
+      await store.rememberPort(ROOT, "/code/beta", 40_002);
+
+      expect(await store.list(ROOT)).toEqual(list);
+    });
+
+    test("loses neither write when both land at once", async () => {
+      const store = new StateStore({ file });
+
+      await Promise.all([
+        store.rememberPort(ROOT, "/code/alpha", 40_001),
+        store.rememberPort(ROOT, "/code/beta", 40_002),
+      ]);
+
+      const ports = await store.ports(ROOT);
+      expect(ports.portFor("/code/alpha")).toEqual(40_001);
+      expect(ports.portFor("/code/beta")).toEqual(40_002);
     });
   });
 
@@ -128,6 +201,12 @@ describe("StateStore", () => {
       await Bun.write(file, JSON.stringify({ roots: { [ROOT]: "alpha-1234abcd" } }));
 
       expect(await new StateStore({ file }).list(ROOT)).toEqual(ProjectList.empty());
+    });
+
+    test("reads an empty set of ports", async () => {
+      await Bun.write(file, JSON.stringify({ roots: { [ROOT]: "alpha-1234abcd" } }));
+
+      expect(await new StateStore({ file }).ports(ROOT)).toEqual(PortBook.empty());
     });
 
     test("keeps the remembered project once a list is saved", async () => {

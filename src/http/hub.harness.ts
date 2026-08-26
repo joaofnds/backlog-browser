@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { DiscoveryCache } from "../discovery/cache.ts";
 import type { Project } from "../discovery/project.ts";
 import { ProjectRegistry } from "../discovery/registry.ts";
+import { rememberedPorts } from "../state/remembered-ports.ts";
 import { StateStore } from "../state/store.ts";
 import { FakeBacklog } from "../supervisor/fake-backlog.ts";
 import { Supervisor } from "../supervisor/supervisor.ts";
@@ -30,7 +31,7 @@ export class HubHarness {
     const supervisor = new Supervisor({
       launch: backlog.launch,
       probe: backlog.probe,
-      allocatePort: backlog.allocatePort,
+      portFor: rememberedPorts({ store, root, allocate: backlog.allocatePort }),
       maxChildren: 4,
       idleTimeoutMs: 0,
       readyTimeoutMs: 1_000,
@@ -121,12 +122,15 @@ export class HubDriver {
   }
 
   async hide(path: string): Promise<Inventory> {
-    return (await this.post("/api/list/hidden", { path, hidden: true })).json() as Promise<Inventory>;
+    return (
+      await this.post("/api/list/hidden", { path, hidden: true })
+    ).json() as Promise<Inventory>;
   }
 
   async show(path: string): Promise<Inventory> {
-    return (await this.post("/api/list/hidden", { path, hidden: false }))
-      .json() as Promise<Inventory>;
+    return (
+      await this.post("/api/list/hidden", { path, hidden: false })
+    ).json() as Promise<Inventory>;
   }
 
   async move(path: string, before: string | null): Promise<Inventory> {

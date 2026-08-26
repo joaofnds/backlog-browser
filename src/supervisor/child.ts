@@ -120,16 +120,32 @@ export const probeBacklogConfig: ReadinessProbe = async (port) => {
   }
 };
 
-export async function allocatePort(): Promise<number> {
-  const probe = Bun.serve({
-    hostname: LOOPBACK,
-    port: 0,
-    fetch: () => new Response(null, { status: 404 }),
-  });
-  const { port } = probe;
-  await probe.stop(true);
+/**
+ * `preferred` is the port a project bound last time, and holding on to it is what keeps the child's
+ * origin, and so its board's `localStorage`, stable across hub runs. Zero means the kernel picks.
+ */
+export async function allocatePort(preferred = 0): Promise<number> {
+  const port = (preferred === 0 ? null : await bind(preferred)) ?? (await bind(0));
 
-  if (port === undefined) throw new Error("the kernel assigned no port to bind against");
+  if (port === null) throw new Error("the kernel assigned no port to bind against");
 
   return port;
+}
+
+async function bind(port: number): Promise<number | null> {
+  let probe: Bun.Server<undefined>;
+  try {
+    probe = Bun.serve({
+      hostname: LOOPBACK,
+      port,
+      fetch: () => new Response(null, { status: 404 }),
+    });
+  } catch {
+    return null;
+  }
+
+  const bound = probe.port ?? null;
+  await probe.stop(true);
+
+  return bound;
 }

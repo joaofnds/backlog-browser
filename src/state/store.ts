@@ -1,9 +1,11 @@
 import { ProjectList } from "../list/list.ts";
 import { readJsonObject, stateFile, writeJson } from "./json-store.ts";
+import { PortBook } from "./port-book.ts";
 
 type RootState = {
   readonly active: string | null;
   readonly list: ProjectList;
+  readonly ports: PortBook;
 };
 
 export class StateStore {
@@ -26,15 +28,21 @@ export class StateStore {
     return (await this.stateOf(root)).list;
   }
 
+  async ports(root: string): Promise<PortBook> {
+    return (await this.stateOf(root)).ports;
+  }
+
   async remember(root: string, slug: string): Promise<void> {
     await this.update(root, (current) => ({ ...current, active: slug }));
   }
 
-  async updateList(
-    root: string,
-    change: (list: ProjectList) => ProjectList,
-  ): Promise<ProjectList> {
-    return (await this.update(root, (current) => ({ ...current, list: change(current.list) }))).list;
+  async updateList(root: string, change: (list: ProjectList) => ProjectList): Promise<ProjectList> {
+    return (await this.update(root, (current) => ({ ...current, list: change(current.list) })))
+      .list;
+  }
+
+  async rememberPort(root: string, path: string, port: number): Promise<void> {
+    await this.update(root, (current) => ({ ...current, ports: current.ports.assign(path, port) }));
   }
 
   private async stateOf(root: string): Promise<RootState> {
@@ -43,8 +51,8 @@ export class StateStore {
 
   /**
    * Every write is a read-modify-write of the whole file, so two of them in flight at once lose
-   * one update. Activating a project and reordering the list are separate writers, so queue them,
-   * and read the current state inside the queue rather than before joining it.
+   * one update. Activating a project, reordering the list and claiming a port are separate writers,
+   * so queue them, and read the current state inside the queue rather than before joining it.
    */
   private update(root: string, change: (current: RootState) => RootState): Promise<RootState> {
     const done = this.writes.then(() => this.apply(root, change));
@@ -53,15 +61,15 @@ export class StateStore {
     return done;
   }
 
-  private async apply(
-    root: string,
-    change: (current: RootState) => RootState,
-  ): Promise<RootState> {
+  private async apply(root: string, change: (current: RootState) => RootState): Promise<RootState> {
     const roots = await this.roots();
     const next = change(readRoot(roots[root]));
 
     await writeJson(this.file, {
-      roots: { ...roots, [root]: { active: next.active, ...next.list.toJSON() } },
+      roots: {
+        ...roots,
+        [root]: { active: next.active, ...next.list.toJSON(), ports: next.ports.toJSON() },
+      },
     });
 
     return next;
@@ -77,7 +85,7 @@ export class StateStore {
 }
 
 function readRoot(stored: unknown): RootState {
-  return { active: activeOf(stored), list: ProjectList.from(stored) };
+  return { active: activeOf(stored), list: ProjectList.from(stored), ports: PortBook.from(stored) };
 }
 
 function activeOf(stored: unknown): string | null {

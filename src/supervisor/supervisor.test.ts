@@ -15,7 +15,7 @@ function supervisorWith(overrides: Partial<ConstructorParameters<typeof Supervis
   return new Supervisor({
     launch: backlog.launch,
     probe: backlog.probe,
-    allocatePort: backlog.allocatePort,
+    portFor: backlog.portFor,
     maxChildren: 4,
     idleTimeoutMs: 30 * 60_000,
     readyTimeoutMs: 1_000,
@@ -183,6 +183,33 @@ describe("Supervisor", () => {
       await supervisor.settled(alpha);
 
       expect(supervisor.statusOf(alpha).status).toEqual("failed");
+    });
+  });
+
+  describe("when a project has a remembered port", () => {
+    test("binds the same port again", async () => {
+      const supervisor = supervisorWith();
+      await supervisor.activate(alpha);
+      backlog.childFor(alpha.path).crash("bye");
+      await supervisor.settled(alpha);
+
+      await supervisor.activate(alpha);
+
+      expect(backlog.childFor(alpha.path).spec.port).toEqual(40_001);
+    });
+
+    test("gives up on it once the child collides", async () => {
+      const supervisor = supervisorWith();
+      await supervisor.activate(alpha);
+      backlog.childFor(alpha.path).crash("bye");
+      await supervisor.settled(alpha);
+      backlog.occupy(40_001);
+
+      await supervisor.activate(alpha);
+      backlog.answerOn(40_002);
+      await supervisor.settled(alpha);
+
+      expect(supervisor.statusOf(alpha).status).toEqual("ready");
     });
   });
 

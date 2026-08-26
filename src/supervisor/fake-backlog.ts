@@ -1,4 +1,5 @@
 import type { ChildLauncher, ChildProcess, LaunchSpec, ReadinessProbe } from "./child.ts";
+import type { PortAllocator } from "./supervisor.ts";
 
 export class FakeChild implements ChildProcess {
   readonly pid = Math.floor(Math.random() * 100_000);
@@ -37,6 +38,7 @@ export class FakeBacklog {
   readonly launches: LaunchSpec[] = [];
   private readonly children: FakeChild[] = [];
   private readonly listening = new Set<number>();
+  private readonly remembered = new Map<string, number>();
   private occupied = new Set<number>();
   private nextPort = 40_000;
 
@@ -54,10 +56,20 @@ export class FakeBacklog {
 
   probe: ReadinessProbe = async (port) => this.listening.has(port);
 
-  allocatePort = async (): Promise<number> => {
+  /** Stands in for the kernel: a free preferred port is honoured, anything else is the next one up. */
+  allocatePort = async (preferred = 0): Promise<number> => {
+    if (preferred !== 0 && !this.occupied.has(preferred)) return preferred;
+
     this.nextPort += 1;
 
     return this.nextPort;
+  };
+
+  portFor: PortAllocator = async ({ path, reuse }) => {
+    const port = await this.allocatePort(reuse ? (this.remembered.get(path) ?? 0) : 0);
+    this.remembered.set(path, port);
+
+    return port;
   };
 
   occupy(...ports: number[]): void {
