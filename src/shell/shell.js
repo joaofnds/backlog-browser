@@ -41,6 +41,8 @@ let activation = null;
 let statuses = new Map();
 /** @type {ReturnType<typeof setTimeout> | undefined} */
 let pollTimer;
+/** @type {ReturnType<typeof setTimeout> | undefined} */
+let statusTimer;
 let highlighted = 0;
 /** @type {string | null} */
 let dragging = null;
@@ -439,8 +441,11 @@ async function pollStatus() {
   scheduleStatusPoll();
 }
 
+/** The `hidden` guard catches the tick already in flight when the tab went away. */
 function scheduleStatusPoll() {
-  setTimeout(pollStatus, STATUS_POLL_MS);
+  if (document.hidden) return;
+
+  statusTimer = setTimeout(pollStatus, STATUS_POLL_MS);
 }
 
 /**
@@ -701,6 +706,11 @@ projectList.addEventListener("drop", (event) => {
   event.preventDefault();
   const anchor = anchorAt(event.clientX);
   mutate("/api/list/order", { path: dragging, before: anchor?.dataset.path ?? null });
+});
+
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) clearTimeout(statusTimer);
+  else pollStatus();
 });
 
 document.addEventListener("pointerdown", (event) => {
