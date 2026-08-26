@@ -1,5 +1,5 @@
 /**
- * @typedef {{ slug: string, name: string, path: string, status: string, hidden: boolean }} ProjectSummary
+ * @typedef {{ slug: string, name: string, path: string, hidden: boolean }} ProjectSummary
  * @typedef {"default" | "manual"} OrderMode
  * @typedef {{ root: string, depth: number, active: string | null, mode: OrderMode, projects: ProjectSummary[] }} Inventory
  * @typedef {{ status: string, url?: string, error?: string, stderr?: string }} Activation
@@ -36,6 +36,8 @@ let inventory = { root: "", depth: 0, active: null, mode: "default", projects: [
 let activeSlug = null;
 /** @type {Activation | null} */
 let activation = null;
+/** @type {Map<string, string>} */
+let statuses = new Map();
 /** @type {ReturnType<typeof setTimeout> | undefined} */
 let pollTimer;
 let highlighted = 0;
@@ -155,8 +157,7 @@ function projectButton(project) {
 
 /** @param {ProjectSummary} project */
 function statusDot(project) {
-  const status =
-    project.slug === activeSlug && activation ? activation.status : (project.status ?? "idle");
+  const status = statuses.get(project.slug) ?? "idle";
 
   const dot = document.createElement("span");
   dot.className = "status";
@@ -423,6 +424,12 @@ function nameOf(slug) {
   return inventory.projects.find((project) => project.slug === slug)?.name ?? slug ?? "the project";
 }
 
+/* Status ------------------------------------------------------------------- */
+
+async function loadStatuses() {
+  statuses = new Map(Object.entries(await (await fetch("/api/status")).json()));
+}
+
 /* Activation --------------------------------------------------------------- */
 
 /**
@@ -479,6 +486,7 @@ async function settle(slug, path, init) {
  */
 async function load(path, init) {
   inventory = await (await fetch(path, init)).json();
+  await loadStatuses();
   renderToolbar();
   renderStage();
 }
