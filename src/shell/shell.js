@@ -506,14 +506,17 @@ async function settle(slug, path, init) {
   const response = await fetch(path, init).catch(() => null);
   if (slug !== activeSlug) return;
 
-  activation = response?.ok
+  /** @type {Activation} */
+  const settled = response?.ok
     ? await response.json()
     : { status: "failed", error: `The hub could not start ${nameOf(slug)}.` };
 
-  renderToolbar();
+  activation = settled;
+  statuses.set(slug, settled.status);
+  patchDots();
   renderStage();
 
-  if (activation?.status === "starting") {
+  if (settled.status === "starting") {
     pollTimer = setTimeout(
       () => settle(slug, `/api/projects/${encodeURIComponent(slug)}`),
       POLL_INTERVAL_MS,
