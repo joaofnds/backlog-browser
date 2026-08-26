@@ -126,7 +126,8 @@ body {
   height: var(--tab-height);
   min-height: var(--tab-height);
   padding: 0 var(--space-3);
-  border: 0;
+  border: 1px solid transparent;
+  border-bottom: 0;
   border-radius: var(--radius) var(--radius) 0 0;
   background: transparent;
   color: var(--text-muted);
@@ -149,9 +150,11 @@ body {
 
 /* The seam: the active tab is the board's own surface reaching up through the strip's
    hairline, so removing either the shared background or the inset shadow it covers turns
-   the front tab back into an ordinary button. */
+   the front tab back into an ordinary button. The ring is open at the bottom for the same
+   reason: the strip's hairline continues it left and right. */
 .project[aria-current="true"],
 .project[aria-current="true"]:hover {
+  border-color: var(--border-default);
   background: var(--board-surface);
   color: var(--text-default);
 }
@@ -246,6 +249,7 @@ body {
   height: 30px;
   min-height: 30px;
   justify-content: flex-start;
+  border: 0;
   border-radius: var(--radius);
 }
 
