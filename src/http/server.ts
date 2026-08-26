@@ -23,7 +23,7 @@ export function startHub(options: {
       "/": asset(shellHtml, "text/html; charset=utf-8"),
       "/shell.css": asset(shellCss, "text/css; charset=utf-8"),
       "/shell.js": asset(shellJs, "text/javascript; charset=utf-8"),
-      "/api/projects": async () => json(await inventoryOf(registry, store, supervisor)),
+      "/api/projects": async () => json(await inventoryOf(registry, store)),
       "/api/projects/:slug": (request) => {
         const project = registry.find(request.params.slug);
         if (!project) return json({ error: "unknown project" }, 404);
@@ -46,7 +46,7 @@ export function startHub(options: {
         POST: async () => {
           await registry.refresh();
 
-          return json(await inventoryOf(registry, store, supervisor));
+          return json(await inventoryOf(registry, store));
         },
       },
       "/api/list/hidden": {
@@ -60,7 +60,7 @@ export function startHub(options: {
             hidden ? list.hide(path) : list.show(path),
           );
 
-          return json(await inventoryOf(registry, store, supervisor));
+          return json(await inventoryOf(registry, store));
         },
       },
       "/api/list/order": {
@@ -74,14 +74,14 @@ export function startHub(options: {
             list.move({ path, before, discovered: registry.all() }),
           );
 
-          return json(await inventoryOf(registry, store, supervisor));
+          return json(await inventoryOf(registry, store));
         },
       },
       "/api/list/reset": {
         POST: async () => {
           await store.updateList(registry.root, (list) => list.reset());
 
-          return json(await inventoryOf(registry, store, supervisor));
+          return json(await inventoryOf(registry, store));
         },
       },
     },
@@ -89,7 +89,7 @@ export function startHub(options: {
   });
 }
 
-async function inventoryOf(registry: ProjectRegistry, store: StateStore, supervisor: Supervisor) {
+async function inventoryOf(registry: ProjectRegistry, store: StateStore) {
   const list = await store.list(registry.root);
 
   return {
@@ -97,7 +97,7 @@ async function inventoryOf(registry: ProjectRegistry, store: StateStore, supervi
     depth: registry.depth,
     active: await store.lastActive(registry.root),
     mode: list.mode,
-    projects: list.arrange(registry.all()).map((listed) => describe(listed, supervisor)),
+    projects: list.arrange(registry.all()).map(describe),
   };
 }
 
@@ -107,12 +107,11 @@ function statusesOf(registry: ProjectRegistry, supervisor: Supervisor) {
   );
 }
 
-function describe(listed: ListedProject, supervisor: Supervisor) {
+function describe(listed: ListedProject) {
   return {
     slug: listed.project.slug,
     name: listed.project.name,
     path: listed.project.path,
-    status: supervisor.statusOf(listed.project).status,
     hidden: listed.hidden,
   };
 }

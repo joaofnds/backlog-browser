@@ -92,7 +92,6 @@ export type ProjectSummary = {
   slug: string;
   name: string;
   path: string;
-  status: string;
   hidden: boolean;
 };
 export type Inventory = {

@@ -116,6 +116,14 @@ describe("hub server", () => {
       expect(project).toMatchObject({ name: "Alpha", path });
       expect(project?.slug).toStartWith("alpha-");
     });
+
+    test("describes a project without its activation status", async () => {
+      await addAndDiscover("Alpha");
+
+      const [project] = (await driver.projects()).projects;
+
+      expect(project).not.toHaveProperty("status");
+    });
   });
 
   describe("across hub runs", () => {
