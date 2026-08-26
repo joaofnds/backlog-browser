@@ -300,6 +300,9 @@ function renderStage() {
     return showBoard(activeSlug, activation.url);
   }
   if (activation.status === "failed") return showFailure(activation);
+  if (activation.status === "idle") {
+    return showDeadChild(`${nameOf(activeSlug)} stopped`, "The hub stopped it to free resources.");
+  }
 
   return showMessage("Starting…", `Waiting for ${nameOf(activeSlug)} to come up.`);
 }
@@ -394,6 +397,22 @@ function showEmptyRoot() {
 
 /** @param {Activation} failure */
 function showFailure(failure) {
+  showDeadChild(
+    `${nameOf(activeSlug)} failed to start`,
+    failure.error ?? "The backlog browser process exited.",
+    failure.stderr,
+  );
+}
+
+/**
+ * The frame goes with the screen. Retry respawns the child on its remembered port, so a kept
+ * frame would match on `src` and be re-revealed showing the document the dead child served.
+ *
+ * @param {string} heading
+ * @param {string} detail
+ * @param {string} [stderr]
+ */
+function showDeadChild(heading, detail, stderr) {
   hideBoards();
   if (activeSlug !== null) dropFrame(activeSlug);
   placeholder.hidden = false;
@@ -402,11 +421,8 @@ function showFailure(failure) {
   retry.className = "action";
   retry.addEventListener("click", () => switchTo(activeSlug, { force: true }));
 
-  const children = [
-    element("h1", `${nameOf(activeSlug)} failed to start`),
-    element("p", failure.error ?? "The backlog browser process exited."),
-  ];
-  if (failure.stderr) children.push(element("pre", failure.stderr));
+  const children = [element("h1", heading), element("p", detail)];
+  if (stderr) children.push(element("pre", stderr));
   children.push(retry);
 
   placeholder.replaceChildren(...children);
