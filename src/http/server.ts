@@ -1,8 +1,11 @@
+import { browse } from "../discovery/browse.ts";
+import { readProject } from "../discovery/discovery.ts";
 import type { ProjectRegistry } from "../discovery/registry.ts";
 import type { ListedProject } from "../list/list.ts";
 import shellHtml from "../shell/index.html" with { type: "text" };
 import shellCss from "../shell/shell.css" with { type: "text" };
 import shellJs from "../shell/shell.js" with { type: "text" };
+import { SETTING_BOUNDS, type SettingBounds, within } from "../state/settings.ts";
 import type { StateStore } from "../state/store.ts";
 import type { Supervisor } from "../supervisor/supervisor.ts";
 
@@ -23,7 +26,7 @@ export function startHub(options: {
       "/": asset(shellHtml, "text/html; charset=utf-8"),
       "/shell.css": asset(shellCss, "text/css; charset=utf-8"),
       "/shell.js": asset(shellJs, "text/javascript; charset=utf-8"),
-      "/api/projects": async () => json(await inventoryOf(registry, store)),
+      "/api/projects": async () => json(await inventoryOf(registry, store, supervisor)),
       "/api/projects/:slug": (request) => {
         const project = registry.find(request.params.slug);
         if (!project) return json({ error: "unknown project" }, 404);
@@ -43,10 +46,61 @@ export function startHub(options: {
       },
       "/api/status": () => noStore(json(statusesOf(registry, supervisor))),
       "/api/refresh": {
-        POST: async () => {
-          await registry.refresh();
+        POST: async (request) => {
+          const body = await bodyOf(request);
+          const depth = within(body.depth, SETTING_BOUNDS.depth);
+          if (body.depth !== undefined && depth === null) {
+            return json({ error: outOfRange("depth", SETTING_BOUNDS.depth) }, 400);
+          }
 
-          return json(await inventoryOf(registry, store));
+          if (depth !== null) {
+            await store.updateSettings(registry.root, (settings) => settings.withDepth(depth));
+          }
+          await registry.refresh(depth ?? undefined);
+
+          return json(await inventoryOf(registry, store, supervisor));
+        },
+      },
+      "/api/settings": {
+        POST: async (request) => {
+          const body = await bodyOf(request);
+          const maxChildren = within(body.maxChildren, SETTING_BOUNDS.maxChildren);
+          if (maxChildren === null) {
+            return json({ error: outOfRange("maxChildren", SETTING_BOUNDS.maxChildren) }, 400);
+          }
+
+          supervisor.resize(maxChildren);
+          await store.updateSettings(registry.root, (settings) =>
+            settings.withMaxChildren(maxChildren),
+          );
+
+          return json(await inventoryOf(registry, store, supervisor));
+        },
+      },
+      "/api/browse": async (request) => {
+        const asked = new URL(request.url).searchParams.get("path");
+        const listing = await browse(asked === null || asked === "" ? registry.root : asked);
+        if (listing === null) return json({ error: "no directory there" }, 404);
+
+        return noStore(json(listing));
+      },
+      "/api/list/added": {
+        POST: async (request) => {
+          const body = await bodyOf(request);
+          const path = stringAt(body, "path");
+          const added = booleanAt(body, "added");
+          if (path === null || added === null) return json({ error: "path and added" }, 400);
+
+          if (added && (await readProject(path)) === null) {
+            return json({ error: "no backlog/config.yml in that folder" }, 400);
+          }
+
+          const list = await store.updateList(registry.root, (current) =>
+            added ? current.add(path) : current.drop(path),
+          );
+          await registry.adopt(list.added);
+
+          return json(await inventoryOf(registry, store, supervisor));
         },
       },
       "/api/list/hidden": {
@@ -60,7 +114,7 @@ export function startHub(options: {
             hidden ? list.hide(path) : list.show(path),
           );
 
-          return json(await inventoryOf(registry, store));
+          return json(await inventoryOf(registry, store, supervisor));
         },
       },
       "/api/list/order": {
@@ -74,14 +128,14 @@ export function startHub(options: {
             list.move({ path, before, discovered: registry.all() }),
           );
 
-          return json(await inventoryOf(registry, store));
+          return json(await inventoryOf(registry, store, supervisor));
         },
       },
       "/api/list/reset": {
         POST: async () => {
           await store.updateList(registry.root, (list) => list.reset());
 
-          return json(await inventoryOf(registry, store));
+          return json(await inventoryOf(registry, store, supervisor));
         },
       },
     },
@@ -89,16 +143,21 @@ export function startHub(options: {
   });
 }
 
-async function inventoryOf(registry: ProjectRegistry, store: StateStore) {
+async function inventoryOf(registry: ProjectRegistry, store: StateStore, supervisor: Supervisor) {
   const list = await store.list(registry.root);
 
   return {
     root: registry.root,
     depth: registry.depth,
+    maxChildren: supervisor.capacity,
     active: await store.lastActive(registry.root),
     mode: list.mode,
     projects: list.arrange(registry.all()).map(describe),
   };
+}
+
+function outOfRange(field: string, bounds: SettingBounds): string {
+  return `${field} must be a whole number between ${bounds.minimum} and ${bounds.maximum}`;
 }
 
 function statusesOf(registry: ProjectRegistry, supervisor: Supervisor) {
@@ -113,6 +172,7 @@ function describe(listed: ListedProject) {
     name: listed.project.name,
     path: listed.project.path,
     hidden: listed.hidden,
+    added: listed.added,
   };
 }
 

@@ -1,8 +1,10 @@
 /**
- * @typedef {{ slug: string, name: string, path: string, hidden: boolean }} ProjectSummary
+ * @typedef {{ slug: string, name: string, path: string, hidden: boolean, added: boolean }} ProjectSummary
  * @typedef {"default" | "manual"} OrderMode
- * @typedef {{ root: string, depth: number, active: string | null, mode: OrderMode, projects: ProjectSummary[] }} Inventory
+ * @typedef {{ root: string, depth: number, maxChildren: number, active: string | null, mode: OrderMode, projects: ProjectSummary[] }} Inventory
  * @typedef {{ status: string, url?: string, error?: string, stderr?: string }} Activation
+ * @typedef {{ name: string, path: string, project: boolean }} DirectoryEntry
+ * @typedef {{ path: string, parent: string | null, project: boolean, entries: DirectoryEntry[] }} Listing
  */
 
 /** @param {string} id */
@@ -13,12 +15,23 @@ function must(id) {
   return node;
 }
 
+const browseAdd = /** @type {HTMLButtonElement} */ (must("browse-add"));
+const browseDialog = /** @type {HTMLDialogElement} */ (must("browse-dialog"));
+const browseError = must("browse-error");
+const browseList = must("browse-list");
+const browsePath = must("browse-path");
+const browseUp = /** @type {HTMLButtonElement} */ (must("browse-up"));
 const contextMenu = must("context-menu");
 const orderMode = must("order-mode");
 const overflow = must("overflow");
 const overflowList = must("overflow-list");
 const overflowSummary = must("overflow-summary");
 const picker = /** @type {HTMLDialogElement} */ (must("picker"));
+const refreshDepth = /** @type {HTMLInputElement} */ (must("refresh-depth"));
+const refreshDialog = /** @type {HTMLDialogElement} */ (must("refresh-dialog"));
+const refreshNote = must("refresh-note");
+const settingsDialog = /** @type {HTMLDialogElement} */ (must("settings-dialog"));
+const settingsMaxChildren = /** @type {HTMLInputElement} */ (must("settings-max-children"));
 const pickerInput = /** @type {HTMLInputElement} */ (must("picker-input"));
 const pickerList = must("picker-list");
 const placeholder = must("placeholder");
@@ -29,10 +42,9 @@ const switcher = /** @type {HTMLElement} */ (must("project-list").parentElement)
 
 const POLL_INTERVAL_MS = 400;
 const STATUS_POLL_MS = 2_000;
-const MAX_FRAMES = 4;
 
 /** @type {Inventory} */
-let inventory = { root: "", depth: 0, active: null, mode: "default", projects: [] };
+let inventory = { root: "", depth: 0, maxChildren: 1, active: null, mode: "default", projects: [] };
 /** @type {string | null} */
 let activeSlug = null;
 /** @type {Activation | null} */
@@ -49,6 +61,8 @@ let dragging = null;
 
 /** @type {Map<string, HTMLIFrameElement>} */
 const frames = new Map();
+/** @type {Listing | null} */
+let listing = null;
 
 /* The list ----------------------------------------------------------------- */
 
@@ -269,20 +283,34 @@ function clearDropMarks() {
  * @param {MouseEvent} event
  */
 function openContextMenu(project, event) {
-  const item = document.createElement("button");
-  item.className = "menu-item";
-  item.type = "button";
-  item.textContent = `Hide ${project.name}`;
-  item.addEventListener("click", () => {
-    closeContextMenu();
-    hideProject(project);
-  });
+  const items = [menuItem(`Hide ${project.name}`, () => hideProject(project))];
+  if (project.added) {
+    items.push(menuItem(`Remove ${project.name} from the list`, () => removeProject(project)));
+  }
+  const [item] = items;
 
-  contextMenu.replaceChildren(item);
+  contextMenu.replaceChildren(...items);
   contextMenu.hidden = false;
   contextMenu.style.left = `${event.clientX}px`;
   contextMenu.style.top = `${event.clientY}px`;
-  item.focus();
+  item?.focus();
+}
+
+/**
+ * @param {string} label
+ * @param {() => void} act
+ */
+function menuItem(label, act) {
+  const item = document.createElement("button");
+  item.className = "menu-item";
+  item.type = "button";
+  item.textContent = label;
+  item.addEventListener("click", () => {
+    closeContextMenu();
+    act();
+  });
+
+  return item;
 }
 
 function closeContextMenu() {
@@ -356,7 +384,7 @@ function frameFor(slug, url) {
 }
 
 function evictFrames() {
-  while (frames.size > MAX_FRAMES) {
+  while (frames.size > inventory.maxChildren) {
     const [oldest, frame] = /** @type {[string, HTMLIFrameElement]} */ ([...frames][0]);
     frame.remove();
     frames.delete(oldest);
@@ -575,14 +603,22 @@ async function restage(slug) {
  * @param {RequestInit} [init]
  */
 async function load(path, init) {
-  inventory = await (await fetch(path, init)).json();
+  const response = await fetch(path, init).catch(() => null);
+  if (!response?.ok) return;
+
+  inventory = await response.json();
   await loadStatuses();
   renderToolbar();
   renderStage();
 }
 
-async function refresh() {
-  await load("/api/refresh", { method: "POST" });
+/** @param {number} [depth] */
+async function refresh(depth) {
+  await load("/api/refresh", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(depth === undefined ? {} : { depth }),
+  });
 
   for (const slug of [...frames.keys()]) {
     if (!inventory.projects.some((project) => project.slug === slug)) dropFrame(slug);
@@ -603,6 +639,138 @@ function cycle(step) {
 
   const next = (slugs.indexOf(activeSlug ?? "") + step + slugs.length) % slugs.length;
   switchTo(slugs[next] ?? null);
+}
+
+/* Settings ----------------------------------------------------------------- */
+
+function openRefreshDialog() {
+  refreshDepth.value = String(inventory.depth);
+  refreshNote.textContent = `Under ${inventory.root}`;
+  refreshDialog.showModal();
+  refreshDepth.select();
+}
+
+function openSettingsDialog() {
+  settingsMaxChildren.value = String(inventory.maxChildren);
+  settingsDialog.showModal();
+  settingsMaxChildren.select();
+}
+
+/** @param {number} maxChildren */
+async function saveSettings(maxChildren) {
+  await mutate("/api/settings", { maxChildren });
+  evictFrames();
+}
+
+/* Folder browser ------------------------------------------------------------ */
+
+async function openBrowseDialog() {
+  browseError.hidden = true;
+  await browseTo(listing?.path ?? inventory.root);
+  browseDialog.showModal();
+}
+
+/** @param {string} path */
+async function browseTo(path) {
+  const response = await fetch(`/api/browse?path=${encodeURIComponent(path)}`).catch(() => null);
+  if (!response?.ok) return showBrowseError(`Could not read ${path}.`);
+
+  listing = await response.json();
+  browseError.hidden = true;
+  renderBrowse();
+}
+
+function renderBrowse() {
+  if (listing === null) return;
+
+  browsePath.textContent = listing.path;
+  browseUp.disabled = listing.parent === null;
+  browseAdd.disabled = !listing.project;
+  browseList.replaceChildren(...listing.entries.map(browseRow));
+}
+
+/** @param {DirectoryEntry} entry */
+function browseRow(entry) {
+  const option = document.createElement("button");
+  option.className = "picker-option browse-entry";
+  option.type = "button";
+  option.append(entry.name);
+  if (entry.project) option.append(badge("board"));
+  option.addEventListener("click", () => browseTo(entry.path));
+
+  const item = document.createElement("li");
+  item.className = "picker-row";
+  item.append(option);
+  if (entry.project) item.append(addButton(entry.path));
+
+  return item;
+}
+
+/** @param {string} text */
+function badge(text) {
+  const node = element("span", text);
+  node.className = "browse-badge";
+
+  return node;
+}
+
+/** @param {string} path */
+function addButton(path) {
+  const button = document.createElement("button");
+  button.className = "action";
+  button.type = "button";
+  button.textContent = "Add";
+  button.addEventListener("click", (event) => {
+    event.stopPropagation();
+    addFolder(path);
+  });
+
+  return button;
+}
+
+/**
+ * The added path never comes back from a walk, so the hub keeps it in the list itself. Switching to
+ * it on the way out is what makes the button feel like it opened the project rather than filed it.
+ *
+ * @param {string} path
+ */
+async function addFolder(path) {
+  const response = await fetch("/api/list/added", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ path, added: true }),
+  }).catch(() => null);
+  if (!response?.ok) {
+    return showBrowseError(`No backlog/config.yml in ${path}.`);
+  }
+
+  inventory = await response.json();
+  await loadStatuses();
+  renderToolbar();
+  renderPicker();
+  browseDialog.close();
+
+  const added = inventory.projects.find((project) => project.path === path);
+  if (added) switchTo(added.slug);
+}
+
+/** @param {ProjectSummary} project */
+async function removeProject(project) {
+  await mutate("/api/list/added", { path: project.path, added: false });
+
+  dropFrame(project.slug);
+  if (project.slug !== activeSlug) return;
+
+  activeSlug = null;
+  activation = null;
+  renderToolbar();
+  renderStage();
+}
+
+/** @param {string} detail */
+function showBrowseError(detail) {
+  browseError.textContent = detail;
+  browseError.hidden = false;
 }
 
 /* Picker ------------------------------------------------------------------- */
@@ -710,8 +878,27 @@ function movePickerSelection(step) {
 
 /* Wiring ------------------------------------------------------------------- */
 
-must("refresh-button").addEventListener("click", refresh);
+must("refresh-button").addEventListener("click", openRefreshDialog);
 must("picker-button").addEventListener("click", openPicker);
+must("browse-button").addEventListener("click", openBrowseDialog);
+must("settings-button").addEventListener("click", openSettingsDialog);
+
+must("refresh-form").addEventListener("submit", () => refresh(Number(refreshDepth.value)));
+must("settings-form").addEventListener("submit", () =>
+  saveSettings(Number(settingsMaxChildren.value)),
+);
+
+browseUp.addEventListener("click", () => {
+  if (listing?.parent) browseTo(listing.parent);
+});
+
+browseAdd.addEventListener("click", () => {
+  if (listing !== null) addFolder(listing.path);
+});
+
+for (const button of document.querySelectorAll("[data-close]")) {
+  button.addEventListener("click", () => button.closest("dialog")?.close());
+}
 must("reset-order").addEventListener("click", () => mutate("/api/list/reset", {}));
 
 showHidden.addEventListener("change", () => {

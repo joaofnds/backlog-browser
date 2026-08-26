@@ -16,15 +16,17 @@ describe("parseOptions", () => {
     expect(parseOptions(["~/code"]).root).toEqual(resolve(process.env.HOME ?? "", "code"));
   });
 
-  test("defaults every tunable", () => {
+  test("defaults every tunable it owns", () => {
     expect(parseOptions([])).toMatchObject({
       port: 6789,
-      depth: 5,
-      maxChildren: 4,
       idleTimeoutMs: 30 * 60_000,
       rescan: false,
       open: true,
     });
+  });
+
+  test("leaves the remembered tunables unset when their flags are absent", () => {
+    expect(parseOptions([])).toMatchObject({ depth: null, maxChildren: null });
   });
 
   test("overrides the hub port", () => {
@@ -71,8 +73,16 @@ describe("parseOptions", () => {
       expect(() => parseOptions(["--depth", "0"])).toThrow(/--depth/);
     });
 
+    test("rejects a depth above the settings ceiling", () => {
+      expect(() => parseOptions(["--depth", "21"])).toThrow(/--depth/);
+    });
+
     test("rejects a child cap below one", () => {
       expect(() => parseOptions(["--max-children", "0"])).toThrow(/--max-children/);
+    });
+
+    test("rejects a child cap above the settings ceiling", () => {
+      expect(() => parseOptions(["--max-children", "33"])).toThrow(/--max-children/);
     });
 
     test("rejects a negative idle timeout", () => {

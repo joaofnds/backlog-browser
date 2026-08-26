@@ -165,6 +165,198 @@ describe("hub server", () => {
 
       expect(inventory.projects.map((project) => project.name)).toEqual(["Latecomer"]);
     });
+
+    test("walks at the depth the request names", async () => {
+      await harness.addProject("Buried", join("a", "b", "c", "d"));
+
+      const inventory = await driver.refresh(5);
+
+      expect(inventory.projects.map((project) => project.name)).toEqual(["Buried"]);
+    });
+
+    test("reports the depth it walked at", async () => {
+      expect((await driver.refresh(7)).depth).toBe(7);
+    });
+
+    test("keeps the startup depth when the request names none", async () => {
+      expect((await driver.refresh()).depth).toBe(3);
+    });
+
+    test("walks at the remembered depth on the next hub run", async () => {
+      await harness.addProject("Buried", join("a", "b", "c", "d"));
+      await driver.refresh(5);
+
+      harness = await harness.restart();
+      driver = harness.driver();
+
+      expect((await driver.projects()).projects.map((project) => project.name)).toEqual(["Buried"]);
+    });
+
+    describe("when the depth is out of range", () => {
+      test("responds 400", async () => {
+        expect((await driver.refreshing(0)).status).toBe(400);
+      });
+
+      test("leaves the depth alone", async () => {
+        await driver.refreshing(0);
+
+        expect((await driver.projects()).depth).toBe(3);
+      });
+    });
+  });
+
+  describe("GET /api/browse", () => {
+    test("lists the root's directories when the request names no path", async () => {
+      await harness.addProject("Alpha", "alpha");
+      await harness.addProject("Beta", "beta");
+
+      const listing = await driver.browse();
+
+      expect(listing.entries.map((entry) => entry.name)).toEqual([".state", "alpha", "beta"]);
+    });
+
+    test("marks the entries that hold a board", async () => {
+      await harness.addProject("Alpha", "alpha");
+
+      const listing = await driver.browse();
+
+      expect(listing.entries.find((entry) => entry.name === "alpha")?.project).toBe(true);
+      expect(listing.entries.find((entry) => entry.name === ".state")?.project).toBe(false);
+    });
+
+    test("descends one level at a time", async () => {
+      await harness.addProject("Buried", join("a", "b"));
+
+      const listing = await driver.browse(join(harness.root, "a"));
+
+      expect(listing.entries.map((entry) => entry.name)).toEqual(["b"]);
+    });
+
+    test("names the parent so the caller can walk back up", async () => {
+      await harness.addProject("Buried", join("a", "b"));
+
+      const listing = await driver.browse(join(harness.root, "a"));
+
+      expect(listing.parent).toEqual(harness.root);
+    });
+
+    describe("when the directory does not exist", () => {
+      test("responds 404", async () => {
+        expect((await driver.browsing(join(harness.root, "ghost"))).status).toBe(404);
+      });
+    });
+  });
+
+  describe("POST /api/list/added", () => {
+    test("lists a project nested below the discovery depth", async () => {
+      const path = await harness.addProject("Buried", join("a", "b", "c", "d"));
+
+      const inventory = (await (await driver.addPath(path)).json()) as Inventory;
+
+      expect(inventory.projects.map((project) => project.name)).toEqual(["Buried"]);
+    });
+
+    test("keeps it through a walk that would never find it", async () => {
+      const path = await harness.addProject("Buried", join("a", "b", "c", "d"));
+      await driver.addPath(path);
+
+      const inventory = await driver.refresh();
+
+      expect(inventory.projects.map((project) => project.name)).toEqual(["Buried"]);
+    });
+
+    test("keeps it for the next hub run", async () => {
+      const path = await harness.addProject("Buried", join("a", "b", "c", "d"));
+      await driver.addPath(path);
+
+      harness = await harness.restart();
+      driver = harness.driver();
+
+      expect((await driver.projects()).projects.map((project) => project.name)).toEqual(["Buried"]);
+    });
+
+    test("lists it once when a later walk finds it too", async () => {
+      const path = await harness.addProject("Buried", join("a", "b"));
+      await driver.addPath(path);
+
+      const inventory = await driver.refresh();
+
+      expect(inventory.projects.map((project) => project.name)).toEqual(["Buried"]);
+    });
+
+    test("marks it as added so the shell can offer to remove it", async () => {
+      const path = await harness.addProject("Buried", join("a", "b", "c", "d"));
+
+      const inventory = (await (await driver.addPath(path)).json()) as Inventory;
+
+      expect(inventory.projects[0]).toMatchObject({ added: true });
+    });
+
+    test("leaves a walked project unmarked", async () => {
+      await addProjects("Alpha");
+
+      expect((await driver.projects()).projects[0]).toMatchObject({ added: false });
+    });
+
+    test("drops it again on request", async () => {
+      const path = await harness.addProject("Buried", join("a", "b", "c", "d"));
+      await driver.addPath(path);
+
+      const inventory = (await (await driver.dropPath(path)).json()) as Inventory;
+
+      expect(inventory.projects).toEqual([]);
+    });
+
+    describe("when the folder holds no board", () => {
+      test("responds 400", async () => {
+        expect((await driver.addPath(harness.root)).status).toBe(400);
+      });
+
+      test("lists nothing new", async () => {
+        await driver.addPath(harness.root);
+
+        expect((await driver.projects()).projects).toEqual([]);
+      });
+    });
+  });
+
+  describe("POST /api/settings", () => {
+    test("reports the cap it now holds", async () => {
+      expect(await (await driver.resize(2)).json()).toMatchObject({ maxChildren: 2 });
+    });
+
+    test("stops the children that no longer fit", async () => {
+      await addProjects("Alpha", "Beta");
+      const inventory = await driver.projects();
+      await driver.activate(slugAt(inventory, pathTo("Alpha")));
+      await driver.activate(slugAt(inventory, pathTo("Beta")));
+
+      await driver.resize(1);
+
+      expect(harness.backlog.childFor(pathTo("Alpha")).killed).toBe(true);
+      expect(harness.backlog.childFor(pathTo("Beta")).killed).toBe(false);
+    });
+
+    test("keeps the cap for the next hub run", async () => {
+      await driver.resize(7);
+
+      harness = await harness.restart();
+      driver = harness.driver();
+
+      expect((await driver.projects()).maxChildren).toBe(7);
+    });
+
+    describe("when the cap is out of range", () => {
+      test("responds 400", async () => {
+        expect((await driver.resize(0)).status).toBe(400);
+      });
+
+      test("leaves the cap alone", async () => {
+        await driver.resize(0);
+
+        expect((await driver.projects()).maxChildren).toBe(4);
+      });
+    });
   });
 
   describe("POST /api/projects/:slug/activate", () => {

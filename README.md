@@ -45,8 +45,8 @@ CSP `frame-ancestors`, which is what makes the iframe work.
 ```
 backlog-browser [root]
   --port <n>           hub port (default 6789)
-  --depth <n>          discovery depth (default 5)
-  --max-children <n>   warm child servers (default 4)
+  --depth <n>          discovery depth (default 5, remembered per root)
+  --max-children <n>   warm child servers (default 4, remembered per root)
   --idle-timeout <m>   minutes before a child is stopped (default 30, 0 = never)
   --rescan             walk the tree at startup instead of using the cache
   --no-open            do not open the browser
@@ -55,6 +55,10 @@ backlog-browser [root]
 A directory is a project when it holds `backlog/config.yml`. Discovery walks `root` to `--depth`
 levels, skipping `node_modules`, `.git`, `target`, `dist`, `build`, `vendor`, `.venv` and any
 dotted directory, and does not descend into a project once found. There is no filesystem watching.
+
+`--depth` and `--max-children` are startup defaults, not fixed settings. Both are editable from the
+toolbar and remembered per root in `state.json`, so a flag seeds the value on a run that passes it
+and the remembered one wins on a run that does not.
 
 ## The discovery cache
 
@@ -71,6 +75,23 @@ whose project is gone is dropped from the cache silently.
 
 Two ways to walk again: press **Refresh** in the toolbar, or start with `--rescan`. Both rewrite
 the cache. Deleting the file works too.
+
+**Refresh** asks for the depth before it walks, preset to the depth in force. Confirming with a
+different number walks at that depth and remembers it for later runs, which matters because the
+cache is keyed by depth: a walk depth that is not remembered would miss the cache on every start
+and pay for a cold walk each time.
+
+## Adding a project by hand
+
+A project nested below the discovery depth is unreachable no matter how often you Refresh, and
+raising `--depth` to reach it slows every walk under that root. **Add** in the toolbar opens a
+folder browser instead: it lists one directory level per request, marks the directories that hold a
+board, and adds the one you pick straight to the list.
+
+Added projects live in `state.json` rather than the discovery cache, because a walk rewrites that
+cache and nothing in a walk would put them back. They survive Refresh and restarts, they sit in
+the list next to discovered projects, and a right-click on the pill offers to remove one again. A
+folder with no `backlog/config.yml` is refused.
 
 Measured on this machine, `~` at depth 5: a cold walk takes 265 ms, a cached load takes under a
 millisecond, and a forced `Refresh` takes 199 ms.
@@ -97,8 +118,12 @@ inputs) first. Injecting a listener into the child is deliberately out of scope.
 
 A child starts on the first switch to its project and stays warm afterwards, so switching back is
 instant. A project is ready once its `/api/config` answers 200 within 15 s; until then the toolbar
-shows "starting". Beyond `--max-children` the least recently used child is stopped, and any child
-left untouched for `--idle-timeout` minutes is stopped too. If a child dies, the frame shows its
+shows "starting". Beyond the warm-child cap the least recently used child is stopped, and any child
+left untouched for `--idle-timeout` minutes is stopped too.
+
+The cap is **Settings** in the toolbar, seeded by `--max-children`. Lowering it stops the children
+that no longer fit right away. The shell keeps one iframe per warm child and reads the cap from the
+hub, so the two cannot drift apart. If a child dies, the frame shows its
 last stderr lines and a Retry button; the hub never restarts it on its own.
 
 `backlog` on `PATH` may be a wrapper that runs the real server as a grandchild, so each child gets

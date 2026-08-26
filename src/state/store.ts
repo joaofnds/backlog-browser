@@ -1,11 +1,13 @@
 import { ProjectList } from "../list/list.ts";
 import { readJsonObject, stateFile, writeJson } from "./json-store.ts";
 import { PortBook } from "./port-book.ts";
+import { HubSettings } from "./settings.ts";
 
 type RootState = {
   readonly active: string | null;
   readonly list: ProjectList;
   readonly ports: PortBook;
+  readonly settings: HubSettings;
 };
 
 export class StateStore {
@@ -32,6 +34,10 @@ export class StateStore {
     return (await this.stateOf(root)).ports;
   }
 
+  async settings(root: string): Promise<HubSettings> {
+    return (await this.stateOf(root)).settings;
+  }
+
   async remember(root: string, slug: string): Promise<void> {
     await this.update(root, (current) => ({ ...current, active: slug }));
   }
@@ -39,6 +45,15 @@ export class StateStore {
   async updateList(root: string, change: (list: ProjectList) => ProjectList): Promise<ProjectList> {
     return (await this.update(root, (current) => ({ ...current, list: change(current.list) })))
       .list;
+  }
+
+  async updateSettings(
+    root: string,
+    change: (settings: HubSettings) => HubSettings,
+  ): Promise<HubSettings> {
+    return (
+      await this.update(root, (current) => ({ ...current, settings: change(current.settings) }))
+    ).settings;
   }
 
   async rememberPort(root: string, path: string, port: number): Promise<void> {
@@ -68,7 +83,12 @@ export class StateStore {
     await writeJson(this.file, {
       roots: {
         ...roots,
-        [root]: { active: next.active, ...next.list.toJSON(), ports: next.ports.toJSON() },
+        [root]: {
+          active: next.active,
+          ...next.list.toJSON(),
+          ports: next.ports.toJSON(),
+          settings: next.settings.toJSON(),
+        },
       },
     });
 
@@ -85,7 +105,12 @@ export class StateStore {
 }
 
 function readRoot(stored: unknown): RootState {
-  return { active: activeOf(stored), list: ProjectList.from(stored), ports: PortBook.from(stored) };
+  return {
+    active: activeOf(stored),
+    list: ProjectList.from(stored),
+    ports: PortBook.from(stored),
+    settings: HubSettings.from(stored),
+  };
 }
 
 function activeOf(stored: unknown): string | null {

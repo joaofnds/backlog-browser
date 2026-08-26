@@ -107,6 +107,32 @@ describe("Supervisor", () => {
       expect(backlog.childFor(beta.path).killed).toBe(false);
     });
 
+    test("stops the children that no longer fit a smaller cap", async () => {
+      const supervisor = supervisorWith({ maxChildren: 3 });
+      await activateReady(supervisor, alpha);
+      clock += 1;
+      await activateReady(supervisor, beta);
+      clock += 1;
+      await activateReady(supervisor, gamma);
+
+      supervisor.resize(1);
+
+      expect(backlog.childFor(alpha.path).killed).toBe(true);
+      expect(backlog.childFor(beta.path).killed).toBe(true);
+      expect(backlog.childFor(gamma.path).killed).toBe(false);
+    });
+
+    test("keeps every child when the cap grows", async () => {
+      const supervisor = supervisorWith({ maxChildren: 2 });
+      await activateReady(supervisor, alpha);
+      clock += 1;
+      await activateReady(supervisor, beta);
+
+      supervisor.resize(4);
+
+      expect(backlog.live).toHaveLength(2);
+    });
+
     test("forgets the evicted project's status", async () => {
       const supervisor = supervisorWith({ maxChildren: 1 });
       await activateReady(supervisor, alpha);

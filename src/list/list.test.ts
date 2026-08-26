@@ -41,6 +41,7 @@ describe("ProjectList", () => {
         mode: "manual",
         order: ["/code/gamma", "/code/alpha", "/code/beta"],
         hidden: [],
+        added: [],
       });
 
       expect(pathsOf(list.arrange(discovered))).toEqual([
@@ -55,6 +56,7 @@ describe("ProjectList", () => {
         mode: "manual",
         order: ["/code/gamma", "/code/beta"],
         hidden: [],
+        added: [],
       });
 
       expect(pathsOf(list.arrange(discovered))).toEqual([
@@ -65,7 +67,12 @@ describe("ProjectList", () => {
     });
 
     test("appends several unknown projects by name", () => {
-      const list = new ProjectList({ mode: "manual", order: ["/code/gamma"], hidden: [] });
+      const list = new ProjectList({
+        mode: "manual",
+        order: ["/code/gamma"],
+        hidden: [],
+        added: [],
+      });
 
       expect(pathsOf(list.arrange(discovered))).toEqual([
         "/code/gamma",
@@ -79,6 +86,7 @@ describe("ProjectList", () => {
         mode: "manual",
         order: ["/code/gone", "/code/alpha"],
         hidden: ["/code/vanished"],
+        added: [],
       });
 
       expect(pathsOf(list.arrange([alpha]))).toEqual(["/code/alpha"]);
@@ -97,6 +105,7 @@ describe("ProjectList", () => {
         mode: "manual",
         order: ["/code/alpha", "/code/beta"],
         hidden: [],
+        added: [],
       });
 
       expect(list.hide("/code/alpha").order).toEqual(["/code/beta"]);
@@ -131,6 +140,7 @@ describe("ProjectList", () => {
         mode: "manual",
         order: ["/code/alpha", "/code/beta", "/code/gamma"],
         hidden: [],
+        added: [],
       })
         .hide("/code/alpha")
         .show("/code/alpha");
@@ -175,6 +185,7 @@ describe("ProjectList", () => {
         mode: "manual",
         order: ["/code/alpha", "/code/gone", "/code/beta"],
         hidden: [],
+        added: [],
       });
 
       expect(list.move({ path: "/code/beta", before: "/code/alpha", discovered }).order).toEqual([
@@ -189,6 +200,7 @@ describe("ProjectList", () => {
         mode: "manual",
         order: ["/code/alpha", "/code/beta"],
         hidden: [],
+        added: [],
       });
 
       expect(list.move({ path: "/code/alpha", before: "/code/nowhere", discovered }).order).toEqual(
@@ -232,7 +244,12 @@ describe("ProjectList", () => {
       const stored = { mode: "manual", order: ["/code/beta"], hidden: ["/code/alpha"] };
 
       expect(ProjectList.from(stored)).toEqual(
-        new ProjectList({ mode: "manual", order: ["/code/beta"], hidden: ["/code/alpha"] }),
+        new ProjectList({
+          mode: "manual",
+          order: ["/code/beta"],
+          hidden: ["/code/alpha"],
+          added: [],
+        }),
       );
     });
 
@@ -246,7 +263,7 @@ describe("ProjectList", () => {
       const stored = { mode: "manual", order: ["/code/beta", 7], hidden: null };
 
       expect(ProjectList.from(stored)).toEqual(
-        new ProjectList({ mode: "manual", order: ["/code/beta"], hidden: [] }),
+        new ProjectList({ mode: "manual", order: ["/code/beta"], hidden: [], added: [] }),
       );
     });
   });

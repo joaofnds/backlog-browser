@@ -39,7 +39,7 @@ export class Supervisor {
   private readonly launch: ChildLauncher;
   private readonly probe: ReadinessProbe;
   private readonly portFor: PortAllocator;
-  private readonly maxChildren: number;
+  private maxChildren: number;
   private readonly idleTimeoutMs: number;
   private readonly readyTimeoutMs: number;
   private readonly pollIntervalMs: number;
@@ -82,7 +82,7 @@ export class Supervisor {
     }
 
     if (warm) this.discard(warm);
-    this.evictBeyondCap();
+    this.evictDownTo(this.maxChildren - 1);
 
     const entry: Entry = {
       project,
@@ -221,8 +221,17 @@ export class Supervisor {
     return { kind: "timeout" };
   }
 
-  private evictBeyondCap(): void {
-    while (this.entries.size >= this.maxChildren) {
+  get capacity(): number {
+    return this.maxChildren;
+  }
+
+  resize(maxChildren: number): void {
+    this.maxChildren = maxChildren;
+    this.evictDownTo(maxChildren);
+  }
+
+  private evictDownTo(limit: number): void {
+    while (this.entries.size > limit) {
       const stale = [...this.entries.values()]
         .filter((entry) => entry.project.slug !== this.activeSlug)
         .sort((left, right) => left.lastUsedAt - right.lastUsedAt)[0];

@@ -356,7 +356,7 @@ body {
 
 /* Picker ----------------------------------------------------------------- */
 
-.picker {
+.sheet {
   width: min(520px, 92vw);
   margin-top: 12vh;
   padding: var(--space-2);
@@ -366,11 +366,98 @@ body {
   color: var(--text-default);
 }
 
-.picker::backdrop {
+.sheet::backdrop {
   background: rgb(0 0 0 / 35%);
 }
 
-.picker-input {
+.sheet-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.sheet-heading {
+  margin: 0;
+  font-size: var(--text-md);
+  font-weight: 600;
+}
+
+.sheet-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-top: var(--space-2);
+}
+
+.sheet-spacer {
+  flex: 1 1 auto;
+}
+
+.sheet-form .sheet-actions {
+  justify-content: flex-end;
+}
+
+.action-primary {
+  background: var(--accent);
+  color: var(--surface-raised);
+}
+
+.action-primary:hover {
+  background: var(--accent);
+  color: var(--surface-raised);
+  filter: brightness(1.08);
+}
+
+.action:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.action:disabled:hover {
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.field-label {
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+
+.field-note {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.field-error {
+  color: var(--status-failed);
+}
+
+.browse-path {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.browse-entry {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.browse-badge {
+  flex: 0 0 auto;
+  padding: 0 6px;
+  border-radius: var(--radius);
+  background: var(--hover-wash);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.picker-input,
+.field-input {
   width: 100%;
   height: 32px;
   padding: 0 var(--space-2);

@@ -2,7 +2,14 @@
 import { DiscoveryCache } from "./discovery/cache.ts";
 import { ProjectRegistry } from "./discovery/registry.ts";
 import { startHub } from "./http/server.ts";
-import { type HubOptions, parseOptions, USAGE, UsageError, wantsHelp } from "./options.ts";
+import {
+  DEFAULTS,
+  type HubOptions,
+  parseOptions,
+  USAGE,
+  UsageError,
+  wantsHelp,
+} from "./options.ts";
 import { rememberedPorts } from "./state/remembered-ports.ts";
 import { StateStore } from "./state/store.ts";
 import { BacklogUnavailable, locateBacklog } from "./supervisor/backlog-cli.ts";
@@ -31,19 +38,27 @@ async function main(argv: string[]): Promise<void> {
     return die(error instanceof BacklogUnavailable ? error.message : String(error));
   }
 
+  const store = StateStore.default();
+  const remembered = await store.settings(options.root);
+  const depth = options.depth ?? remembered.depth ?? DEFAULTS.depth;
+  const maxChildren = options.maxChildren ?? remembered.maxChildren ?? DEFAULTS.maxChildren;
+  await store.updateSettings(options.root, (settings) =>
+    settings.withDepth(depth).withMaxChildren(maxChildren),
+  );
+
   const registry = new ProjectRegistry({
     root: options.root,
-    depth: options.depth,
+    depth,
     cache: DiscoveryCache.default(),
   });
   await (options.rescan ? registry.refresh() : registry.load());
+  await registry.adopt((await store.list(options.root)).added);
 
-  const store = StateStore.default();
   const supervisor = new Supervisor({
     launch: backlogLauncher(backlog.binary),
     probe: probeBacklogConfig,
     portFor: rememberedPorts({ store, root: options.root, allocate: allocatePort }),
-    maxChildren: options.maxChildren,
+    maxChildren,
     idleTimeoutMs: options.idleTimeoutMs,
     readyTimeoutMs: READY_TIMEOUT_MS,
   });
@@ -63,7 +78,7 @@ async function main(argv: string[]): Promise<void> {
     force: () => supervisor.terminate(),
   });
 
-  announce(server.url.href, registry, options);
+  announce(server.url.href, registry, options.root);
   if (options.open) openBrowser(server.url.href);
 }
 
@@ -81,11 +96,11 @@ function listen(deps: Parameters<typeof startHub>[0]): Bun.Server<undefined> | n
   }
 }
 
-function announce(url: string, registry: ProjectRegistry, options: HubOptions): void {
+function announce(url: string, registry: ProjectRegistry, root: string): void {
   const count = registry.all().length;
   const noun = count === 1 ? "project" : "projects";
   console.log(`backlog-browser → ${url}`);
-  console.log(`${count} ${noun} under ${options.root} (depth ${options.depth})`);
+  console.log(`${count} ${noun} under ${root} (depth ${registry.depth})`);
 }
 
 function installShutdown(handlers: { stop: () => Promise<void>; force: () => void }): void {

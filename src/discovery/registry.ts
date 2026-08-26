@@ -1,13 +1,14 @@
 import type { DiscoveryCache } from "./cache.ts";
 import { findProjectPaths, type ProjectFinder, readProjects } from "./discovery.ts";
-import type { Project } from "./project.ts";
+import { Project } from "./project.ts";
 
 export class ProjectRegistry {
   readonly root: string;
-  readonly depth: number;
+  private currentDepth: number;
   private readonly cache: DiscoveryCache;
   private readonly walk: ProjectFinder;
   private discovered: Project[] = [];
+  private adopted: Project[] = [];
 
   constructor(props: {
     root: string;
@@ -16,40 +17,59 @@ export class ProjectRegistry {
     find?: ProjectFinder;
   }) {
     this.root = props.root;
-    this.depth = props.depth;
+    this.currentDepth = props.depth;
     this.cache = props.cache;
     this.walk = props.find ?? findProjectPaths;
   }
 
+  get depth(): number {
+    return this.currentDepth;
+  }
+
   async load(): Promise<readonly Project[]> {
-    const cached = await this.cache.read(this.root, this.depth);
+    const cached = await this.cache.read(this.root, this.currentDepth);
     if (cached === null) return this.refresh();
 
     this.discovered = await readProjects(cached);
     if (this.discovered.length !== cached.length) await this.save();
 
-    return this.discovered;
+    return this.all();
   }
 
-  async refresh(): Promise<readonly Project[]> {
-    this.discovered = await readProjects(await this.walk({ root: this.root, depth: this.depth }));
+  async refresh(depth = this.currentDepth): Promise<readonly Project[]> {
+    this.currentDepth = depth;
+    this.discovered = await readProjects(await this.walk({ root: this.root, depth }));
     await this.save();
 
-    return this.discovered;
+    return this.all();
+  }
+
+  /**
+   * Paths the user picked by hand, merged into every later answer. They stay out of the discovery
+   * cache: a walk rewrites it, and nothing in a walk would put them back.
+   */
+  async adopt(paths: readonly string[]): Promise<readonly Project[]> {
+    this.adopted = await readProjects(paths);
+
+    return this.all();
   }
 
   all(): readonly Project[] {
-    return this.discovered;
+    const known = new Set(this.discovered.map((project) => project.path));
+
+    return [...this.discovered, ...this.adopted.filter((project) => !known.has(project.path))].sort(
+      Project.byName,
+    );
   }
 
   find(slug: string): Project | undefined {
-    return this.discovered.find((project) => project.slug === slug);
+    return this.all().find((project) => project.slug === slug);
   }
 
   private async save(): Promise<void> {
     await this.cache.write(
       this.root,
-      this.depth,
+      this.currentDepth,
       this.discovered.map((project) => project.path),
     );
   }

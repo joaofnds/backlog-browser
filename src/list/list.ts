@@ -5,21 +5,30 @@ export type OrderMode = "default" | "manual";
 export type ListedProject = {
   readonly project: Project;
   readonly hidden: boolean;
+  readonly added: boolean;
 };
 
 export class ProjectList {
   readonly mode: OrderMode;
   readonly order: readonly string[];
   readonly hidden: readonly string[];
+  /** Paths the user picked by hand. The walk never produces them, so only this list keeps them. */
+  readonly added: readonly string[];
 
-  constructor(props: { mode: OrderMode; order: readonly string[]; hidden: readonly string[] }) {
+  constructor(props: {
+    mode: OrderMode;
+    order: readonly string[];
+    hidden: readonly string[];
+    added: readonly string[];
+  }) {
     this.mode = props.mode;
     this.order = props.order;
     this.hidden = props.hidden;
+    this.added = props.added;
   }
 
   static empty(): ProjectList {
-    return new ProjectList({ mode: "default", order: [], hidden: [] });
+    return new ProjectList({ mode: "default", order: [], hidden: [], added: [] });
   }
 
   static from(value: unknown): ProjectList {
@@ -33,17 +42,19 @@ export class ProjectList {
       mode: stored.mode === "manual" ? "manual" : "default",
       order: strings(stored.order),
       hidden: strings(stored.hidden),
+      added: strings(stored.added),
     });
   }
 
   arrange(discovered: readonly Project[]): ListedProject[] {
     const hidden = new Set(this.hidden);
+    const added = new Set(this.added);
     const visible = discovered.filter((project) => !hidden.has(project.path));
     const concealed = discovered.filter((project) => hidden.has(project.path));
 
     return [
-      ...this.sequence(visible).map((project) => ({ project, hidden: false })),
-      ...concealed.map((project) => ({ project, hidden: true })),
+      ...this.sequence(visible).map((project) => list(project, false, added)),
+      ...concealed.map((project) => list(project, true, added)),
     ];
   }
 
@@ -52,6 +63,7 @@ export class ProjectList {
       mode: this.mode,
       order: this.order.filter((stored) => stored !== path),
       hidden: this.hidden.includes(path) ? this.hidden : [...this.hidden, path],
+      added: this.added,
     });
   }
 
@@ -60,6 +72,26 @@ export class ProjectList {
       mode: this.mode,
       order: this.order,
       hidden: this.hidden.filter((stored) => stored !== path),
+      added: this.added,
+    });
+  }
+
+  add(path: string): ProjectList {
+    return new ProjectList({
+      mode: this.mode,
+      order: this.order,
+      hidden: this.hidden.filter((stored) => stored !== path),
+      added: this.added.includes(path) ? this.added : [...this.added, path],
+    });
+  }
+
+  /** Drops every trace of the path, because nothing else would put an added project back. */
+  drop(path: string): ProjectList {
+    return new ProjectList({
+      mode: this.mode,
+      order: this.order.filter((stored) => stored !== path),
+      hidden: this.hidden.filter((stored) => stored !== path),
+      added: this.added.filter((stored) => stored !== path),
     });
   }
 
@@ -86,15 +118,21 @@ export class ProjectList {
       mode: "manual",
       order: [...rest.slice(0, at), props.path, ...rest.slice(at)],
       hidden: this.hidden,
+      added: this.added,
     });
   }
 
   reset(): ProjectList {
-    return new ProjectList({ mode: "default", order: [], hidden: this.hidden });
+    return new ProjectList({ mode: "default", order: [], hidden: this.hidden, added: this.added });
   }
 
-  toJSON(): { mode: OrderMode; order: readonly string[]; hidden: readonly string[] } {
-    return { mode: this.mode, order: this.order, hidden: this.hidden };
+  toJSON(): {
+    mode: OrderMode;
+    order: readonly string[];
+    hidden: readonly string[];
+    added: readonly string[];
+  } {
+    return { mode: this.mode, order: this.order, hidden: this.hidden, added: this.added };
   }
 
   private sequence(visible: readonly Project[]): Project[] {
@@ -114,6 +152,10 @@ export class ProjectList {
 
     return discovered.filter((project) => !hidden.has(project.path)).map((project) => project.path);
   }
+}
+
+function list(project: Project, hidden: boolean, added: ReadonlySet<string>): ListedProject {
+  return { project, hidden, added: added.has(project.path) };
 }
 
 function strings(value: unknown): string[] {

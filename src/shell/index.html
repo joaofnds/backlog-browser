@@ -20,8 +20,14 @@
         <button class="action" id="picker-button" type="button" title="Find a project (Ctrl/Cmd+K)">
           Find
         </button>
+        <button class="action" id="browse-button" type="button" title="Add a project by folder">
+          Add
+        </button>
         <button class="action" id="refresh-button" type="button" title="Re-run discovery">
           Refresh
+        </button>
+        <button class="action" id="settings-button" type="button" title="Hub settings">
+          Settings
         </button>
       </div>
     </header>
@@ -30,7 +36,7 @@
       <div class="placeholder" id="placeholder" role="status" aria-live="polite"></div>
     </main>
 
-    <dialog class="picker" id="picker" aria-label="Find a project" closedby="any">
+    <dialog class="sheet picker" id="picker" aria-label="Find a project" closedby="any">
       <label class="visually-hidden" for="picker-input">Filter projects</label>
       <!--
         Not type="search". Chrome's Escape default on a search field is "clear the field", and it
@@ -52,6 +58,61 @@
         </label>
         <span class="order-mode">Order: <span class="mode-pill" id="order-mode"></span></span>
         <button class="action" id="reset-order" type="button">Reset order</button>
+      </div>
+    </dialog>
+
+    <dialog class="sheet" id="refresh-dialog" aria-labelledby="refresh-heading" closedby="any">
+      <form class="sheet-form" id="refresh-form" method="dialog">
+        <h2 class="sheet-heading" id="refresh-heading">Re-run discovery</h2>
+        <label class="field-label" for="refresh-depth">Levels to walk</label>
+        <input
+          class="field-input"
+          id="refresh-depth"
+          max="20"
+          min="1"
+          step="1"
+          type="number"
+        />
+        <p class="field-note" id="refresh-note"></p>
+        <div class="sheet-actions">
+          <button class="action" data-close type="button">Cancel</button>
+          <button class="action action-primary" type="submit">Refresh</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="sheet" id="settings-dialog" aria-labelledby="settings-heading" closedby="any">
+      <form class="sheet-form" id="settings-form" method="dialog">
+        <h2 class="sheet-heading" id="settings-heading">Settings</h2>
+        <label class="field-label" for="settings-max-children">Boards kept running</label>
+        <input
+          class="field-input"
+          id="settings-max-children"
+          max="32"
+          min="1"
+          step="1"
+          type="number"
+        />
+        <p class="field-note">
+          Switching to a project past this number stops the board you used least recently.
+        </p>
+        <div class="sheet-actions">
+          <button class="action" data-close type="button">Cancel</button>
+          <button class="action action-primary" type="submit">Save</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="sheet" id="browse-dialog" aria-labelledby="browse-heading" closedby="any">
+      <h2 class="sheet-heading" id="browse-heading">Add a project folder</h2>
+      <p class="browse-path" id="browse-path"></p>
+      <ul class="picker-list" id="browse-list"></ul>
+      <p class="field-note field-error" id="browse-error" hidden></p>
+      <div class="sheet-actions">
+        <button class="action" id="browse-up" type="button">Up</button>
+        <span class="sheet-spacer"></span>
+        <button class="action" data-close type="button">Cancel</button>
+        <button class="action action-primary" id="browse-add" type="button">Add this folder</button>
       </div>
     </dialog>
 

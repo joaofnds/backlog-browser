@@ -11,10 +11,12 @@ import { FakeBacklog } from "../supervisor/fake-backlog.ts";
 import { Supervisor } from "../supervisor/supervisor.ts";
 import { startHub } from "./server.ts";
 
+const HARNESS_DEPTH = 3;
+const HARNESS_MAX_CHILDREN = 4;
+
 export class HubHarness {
   private constructor(
     readonly root: string,
-    private readonly depth: number,
     private readonly registry: ProjectRegistry,
     readonly store: StateStore,
     readonly backlog: FakeBacklog,
@@ -22,19 +24,30 @@ export class HubHarness {
     private readonly server: Bun.Server<undefined>,
   ) {}
 
+  /**
+   * Resolves depth and the child cap the way `cli.ts` does, flag then remembered then default, so a
+   * `restart()` with no flag sees whatever the shell last chose.
+   */
   static async start(options: { depth?: number; root?: string } = {}): Promise<HubHarness> {
     const root = options.root ?? (await mkdtemp(join(tmpdir(), "backlog-browser-")));
-    const depth = options.depth ?? 3;
+    const store = new StateStore({ file: join(root, ".state", "state.json") });
+    const remembered = await store.settings(root);
+    const depth = options.depth ?? remembered.depth ?? HARNESS_DEPTH;
+    const maxChildren = remembered.maxChildren ?? HARNESS_MAX_CHILDREN;
+    await store.updateSettings(root, (settings) =>
+      settings.withDepth(depth).withMaxChildren(maxChildren),
+    );
+
     const cache = new DiscoveryCache({ file: join(root, ".state", "discovery.json") });
     const registry = new ProjectRegistry({ root, depth, cache });
     await registry.load();
-    const store = new StateStore({ file: join(root, ".state", "state.json") });
+    await registry.adopt((await store.list(root)).added);
     const backlog = new FakeBacklog();
     const supervisor = new Supervisor({
       launch: backlog.launch,
       probe: backlog.probe,
       portFor: rememberedPorts({ store, root, allocate: backlog.allocatePort }),
-      maxChildren: 4,
+      maxChildren,
       idleTimeoutMs: 0,
       readyTimeoutMs: 1_000,
       pollIntervalMs: 0,
@@ -42,7 +55,6 @@ export class HubHarness {
 
     return new HubHarness(
       root,
-      depth,
       registry,
       store,
       backlog,
@@ -78,7 +90,7 @@ export class HubHarness {
     await this.supervisor.shutdown();
     await this.server.stop(true);
 
-    return HubHarness.start({ root: this.root, depth: this.depth });
+    return HubHarness.start({ root: this.root });
   }
 
   async stop(): Promise<void> {
@@ -93,13 +105,22 @@ export type ProjectSummary = {
   name: string;
   path: string;
   hidden: boolean;
+  added: boolean;
 };
 export type Inventory = {
   root: string;
   depth: number;
+  maxChildren: number;
   active: string | null;
   mode: "default" | "manual";
   projects: ProjectSummary[];
+};
+
+export type Listing = {
+  path: string;
+  parent: string | null;
+  project: boolean;
+  entries: { name: string; path: string; project: boolean }[];
 };
 
 export class HubDriver {
@@ -113,10 +134,34 @@ export class HubDriver {
     return (await this.get("/api/projects")).json() as Promise<Inventory>;
   }
 
-  async refresh(): Promise<Inventory> {
-    const response = await fetch(`${this.origin}/api/refresh`, { method: "POST" });
+  async refresh(depth?: number): Promise<Inventory> {
+    return (await this.refreshing(depth)).json() as Promise<Inventory>;
+  }
 
-    return response.json() as Promise<Inventory>;
+  async refreshing(depth?: number): Promise<Response> {
+    return this.post("/api/refresh", depth === undefined ? {} : { depth });
+  }
+
+  async resize(maxChildren: number): Promise<Response> {
+    return this.post("/api/settings", { maxChildren });
+  }
+
+  async browsing(path?: string): Promise<Response> {
+    return this.get(
+      path === undefined ? "/api/browse" : `/api/browse?path=${encodeURIComponent(path)}`,
+    );
+  }
+
+  async browse(path?: string): Promise<Listing> {
+    return (await this.browsing(path)).json() as Promise<Listing>;
+  }
+
+  async addPath(path: string): Promise<Response> {
+    return this.post("/api/list/added", { path, added: true });
+  }
+
+  async dropPath(path: string): Promise<Response> {
+    return this.post("/api/list/added", { path, added: false });
   }
 
   async activate(slug: string): Promise<Response> {
