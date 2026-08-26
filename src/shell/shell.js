@@ -395,6 +395,7 @@ function showEmptyRoot() {
 /** @param {Activation} failure */
 function showFailure(failure) {
   hideBoards();
+  if (activeSlug !== null) dropFrame(activeSlug);
   placeholder.hidden = false;
 
   const retry = element("button", "Retry");
@@ -438,7 +439,19 @@ async function pollStatus() {
   await loadStatuses().catch(() => {});
 
   patchDots();
+  restageIfChanged();
   scheduleStatusPoll();
+}
+
+/**
+ * `activation` is `null` between a switch and its response, and the stage must not be re-driven
+ * then: a tick would paint a dead-child screen over a project that is still booting.
+ */
+function restageIfChanged() {
+  if (activeSlug === null || activation === null) return;
+  if (statuses.get(activeSlug) === activation.status) return;
+
+  restage(activeSlug);
 }
 
 /** The `hidden` guard catches the tick already in flight when the tab went away. */
@@ -522,6 +535,21 @@ async function settle(slug, path, init) {
       POLL_INTERVAL_MS,
     );
   }
+}
+
+/**
+ * A failed fetch is not a death. `settle` answers one by fabricating a start failure, which is
+ * right for an activation the user asked for and wrong for a background tick: a hiccup would flip
+ * a healthy stage to a failure screen.
+ *
+ * @param {string} slug
+ */
+async function restage(slug) {
+  const response = await fetch(`/api/projects/${encodeURIComponent(slug)}`).catch(() => null);
+  if (!response?.ok || slug !== activeSlug) return;
+
+  activation = await response.json();
+  renderStage();
 }
 
 /* Discovery ---------------------------------------------------------------- */
