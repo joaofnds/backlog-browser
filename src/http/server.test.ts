@@ -214,6 +214,26 @@ describe("hub server", () => {
 
       expect(await driver.statuses()).toEqual({ [slug]: "idle" });
     });
+
+    test("reports a child that answered as ready", async () => {
+      const slug = await addAndDiscover("Alpha");
+      await driver.activate(slug);
+      await readyUp(slug);
+
+      expect(await driver.statuses()).toEqual({ [slug]: "ready" });
+    });
+
+    test("reports a child that exited on its own as failed", async () => {
+      const slug = await addAndDiscover("Alpha");
+      await driver.activate(slug);
+      await readyUp(slug);
+
+      const child = harness.backlog.childFor(harness.projectFor(slug).path);
+      child.crash("boom", 9);
+      await child.exited;
+
+      expect(await driver.statuses()).toEqual({ [slug]: "failed" });
+    });
   });
 
   describe("POST /api/list/hidden", () => {
