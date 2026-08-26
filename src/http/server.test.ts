@@ -208,6 +208,14 @@ describe("hub server", () => {
     });
   });
 
+  describe("GET /api/status", () => {
+    test("reports a project nobody activated as idle", async () => {
+      const slug = await addAndDiscover("Alpha");
+
+      expect(await driver.statuses()).toEqual({ [slug]: "idle" });
+    });
+  });
+
   describe("POST /api/list/hidden", () => {
     test("flags the project as hidden", async () => {
       await addProjects("Alpha", "Beta");

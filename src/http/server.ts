@@ -41,6 +41,7 @@ export function startHub(options: {
           return json(activation);
         },
       },
+      "/api/status": () => json(statusesOf(registry, supervisor)),
       "/api/refresh": {
         POST: async () => {
           await registry.refresh();
@@ -98,6 +99,12 @@ async function inventoryOf(registry: ProjectRegistry, store: StateStore, supervi
     mode: list.mode,
     projects: list.arrange(registry.all()).map((listed) => describe(listed, supervisor)),
   };
+}
+
+function statusesOf(registry: ProjectRegistry, supervisor: Supervisor) {
+  return Object.fromEntries(
+    registry.all().map((project) => [project.slug, supervisor.statusOf(project).status]),
+  );
 }
 
 function describe(listed: ListedProject, supervisor: Supervisor) {

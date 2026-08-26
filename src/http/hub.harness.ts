@@ -124,6 +124,10 @@ export class HubDriver {
     return fetch(`${this.origin}/api/projects/${slug}/activate`, { method: "POST" });
   }
 
+  async statuses(): Promise<Record<string, string>> {
+    return (await this.get("/api/status")).json() as Promise<Record<string, string>>;
+  }
+
   async status(slug: string): Promise<Response> {
     return this.get(`/api/projects/${slug}`);
   }
