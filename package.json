@@ -9,7 +9,7 @@
     "start": "bun run src/cli.ts",
     "test": "bun test",
     "typecheck": "tsc --noEmit && tsc --noEmit -p src/shell",
-    "check": "biome check --write . && tsc --noEmit && bun test",
+    "check": "biome check --write . && bun run typecheck && bun test",
     "build": "bun build --compile --outfile dist/backlog-browser src/cli.ts"
   },
   "devDependencies": {
