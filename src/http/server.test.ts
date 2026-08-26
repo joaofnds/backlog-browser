@@ -234,6 +234,12 @@ describe("hub server", () => {
 
       expect(await driver.statuses()).toEqual({ [slug]: "failed" });
     });
+
+    test("answers no-store, because the shell polls it", async () => {
+      const response = await driver.get("/api/status");
+
+      expect(response.headers.get("cache-control")).toEqual("no-store");
+    });
   });
 
   describe("POST /api/list/hidden", () => {

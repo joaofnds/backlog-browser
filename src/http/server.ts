@@ -41,7 +41,7 @@ export function startHub(options: {
           return json(activation);
         },
       },
-      "/api/status": () => json(statusesOf(registry, supervisor)),
+      "/api/status": () => noStore(json(statusesOf(registry, supervisor))),
       "/api/refresh": {
         POST: async () => {
           await registry.refresh();
@@ -149,6 +149,12 @@ function asset(body: string, contentType: string): Response {
   return new Response(body, {
     headers: { "content-type": contentType, "cache-control": "no-store" },
   });
+}
+
+function noStore(response: Response): Response {
+  response.headers.set("cache-control", "no-store");
+
+  return response;
 }
 
 function json(body: unknown, status = 200): Response {
