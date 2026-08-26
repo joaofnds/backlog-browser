@@ -28,6 +28,7 @@ const stage = /** @type {HTMLElement} */ (must("placeholder").parentElement);
 const switcher = /** @type {HTMLElement} */ (must("project-list").parentElement);
 
 const POLL_INTERVAL_MS = 400;
+const STATUS_POLL_MS = 2_000;
 const MAX_FRAMES = 4;
 
 /** @type {Inventory} */
@@ -430,6 +431,43 @@ async function loadStatuses() {
   statuses = new Map(Object.entries(await (await fetch("/api/status")).json()));
 }
 
+/** Without the catch, one refused tick would end the chain: nothing re-arms after a rejection. */
+async function pollStatus() {
+  await loadStatuses().catch(() => {});
+
+  patchDots();
+  scheduleStatusPoll();
+}
+
+function scheduleStatusPoll() {
+  setTimeout(pollStatus, STATUS_POLL_MS);
+}
+
+/**
+ * A tick must never call `renderToolbar`: the rebuild drops keyboard focus to `<body>` and would
+ * tear the pill out from under a live drag. Writing the dot in place touches no structure, so it
+ * needs no `dragging` guard of its own.
+ */
+function patchDots() {
+  for (const pill of document.querySelectorAll(".project")) {
+    if (!(pill instanceof HTMLElement) || pill.dataset.slug === undefined) continue;
+
+    patchDot(pill.querySelector(".status"), statuses.get(pill.dataset.slug) ?? "idle");
+  }
+}
+
+/**
+ * @param {Element | null} dot
+ * @param {string} status
+ */
+function patchDot(dot, status) {
+  if (!(dot instanceof HTMLElement) || dot.dataset.status === status) return;
+
+  dot.dataset.status = status;
+  const label = dot.querySelector(".visually-hidden");
+  if (label !== null) label.textContent = status;
+}
+
 /* Activation --------------------------------------------------------------- */
 
 /**
@@ -707,5 +745,7 @@ const remembered = inventory.projects.some((project) => project.slug === invento
 const opening = new URL(location.href).searchParams.get("project") ?? remembered;
 
 if (opening !== null) await switchTo(opening, { replace: true });
+
+scheduleStatusPoll();
 
 export {};
