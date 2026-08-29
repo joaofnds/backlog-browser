@@ -127,8 +127,11 @@ inputs) first. Injecting a listener into the child is deliberately out of scope.
 A child starts on the first switch to its project and stays warm afterwards, so switching back is
 instant. A project is ready once its `/api/config` answers 200 within 15 s; until then the toolbar
 shows "starting". Nothing caps how many run at once: a child is stopped once it has gone
-`--idle-timeout` minutes untouched, and the project on screen is never swept. The sweep ticks once a
-minute, so a child outlives its timeout by up to a minute.
+`--idle-timeout` minutes untouched. The shell's 2 s status poll names the project on screen, and
+that report is what counts as touched, so a visible board is never swept, from any number of tabs.
+A hidden tab stops polling, so its board can idle out like any other; switching back shows the
+stopped screen with a Retry button. The sweep ticks once a minute, so a child outlives its timeout
+by up to a minute.
 
 Time is the only bound, so the memory in play is whatever you opened in the last few minutes.
 Measured on this machine against backlog.md 1.50.1, one child is a `node` wrapper plus the real

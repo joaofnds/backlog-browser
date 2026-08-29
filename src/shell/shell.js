@@ -467,8 +467,11 @@ function nameOf(slug) {
 
 /* Status ------------------------------------------------------------------- */
 
+/** Naming the on-screen project is what keeps its child warm past the hub's idle sweep. */
 async function loadStatuses() {
-  statuses = new Map(Object.entries(await (await fetch("/api/status")).json()));
+  const route =
+    activeSlug === null ? "/api/status" : `/api/status?active=${encodeURIComponent(activeSlug)}`;
+  statuses = new Map(Object.entries(await (await fetch(route)).json()));
 }
 
 /** Without the catch, one refused tick would end the chain: nothing re-arms after a rejection. */

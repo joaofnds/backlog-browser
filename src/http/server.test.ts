@@ -126,6 +126,25 @@ describe("hub server", () => {
     });
   });
 
+  describe("GET /api/status?active=…", () => {
+    test("answers the statuses when the shell names its on-screen project", async () => {
+      const slug = await addAndDiscover("Alpha");
+      await driver.activate(slug);
+
+      const response = await driver.get(`/api/status?active=${slug}`);
+
+      expect(await response.json()).toMatchObject({ [slug]: "starting" });
+    });
+
+    test("tolerates a slug it does not know", async () => {
+      await addAndDiscover("Alpha");
+
+      const response = await driver.get("/api/status?active=gone-12345678");
+
+      expect(response.status).toBe(200);
+    });
+  });
+
   describe("across hub runs", () => {
     test("gives a project back the port it had", async () => {
       await addProjects("Alpha", "Beta");

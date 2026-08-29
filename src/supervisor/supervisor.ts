@@ -45,7 +45,6 @@ export class Supervisor {
   private readonly now: () => number;
 
   private readonly entries = new Map<string, Entry>();
-  private activeSlug: string | null = null;
   private stopped = false;
 
   constructor(props: {
@@ -68,8 +67,6 @@ export class Supervisor {
 
   async activate(project: Project): Promise<Activation> {
     if (this.stopped) return { status: "failed", error: "The hub is shutting down." };
-
-    this.activeSlug = project.slug;
 
     const warm = this.entries.get(project.slug);
     if (warm && warm.activation.status !== "failed") {
@@ -106,6 +103,12 @@ export class Supervisor {
     return this.entries.get(project.slug)?.activation ?? { status: "idle" };
   }
 
+  /** The shell names its on-screen project every status poll; that report is what keeps it warm. */
+  touch(project: Project): void {
+    const entry = this.entries.get(project.slug);
+    if (entry) entry.lastUsedAt = this.now();
+  }
+
   settled(project: Project): Promise<void> {
     return this.entries.get(project.slug)?.settling ?? Promise.resolve();
   }
@@ -115,7 +118,6 @@ export class Supervisor {
 
     const cutoff = this.now() - this.idleTimeoutMs;
     for (const entry of [...this.entries.values()]) {
-      if (entry.project.slug === this.activeSlug) continue;
       if (entry.lastUsedAt <= cutoff) this.discard(entry);
     }
   }

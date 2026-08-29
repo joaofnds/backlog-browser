@@ -265,15 +265,34 @@ describe("Supervisor", () => {
       expect(supervisor.statusOf(alpha).status).toEqual("idle");
     });
 
-    test("spares the project being viewed", async () => {
+    test("spares the project the shell reports on screen", async () => {
       const supervisor = supervisorWith({ idleTimeoutMs: 1_000 });
       await activateReady(supervisor, alpha);
       await activateReady(supervisor, beta);
 
       clock += 1_001;
+      supervisor.touch(beta);
       supervisor.stopIdle();
 
       expect(backlog.childFor(beta.path).killed).toBe(false);
+    });
+
+    test("sweeps the last-activated project once nothing reports it", async () => {
+      const supervisor = supervisorWith({ idleTimeoutMs: 1_000 });
+      await activateReady(supervisor, alpha);
+
+      clock += 1_001;
+      supervisor.stopIdle();
+
+      expect(backlog.childFor(alpha.path).killed).toBe(true);
+    });
+
+    test("ignores a touch for a project with no child", () => {
+      const supervisor = supervisorWith();
+
+      supervisor.touch(alpha);
+
+      expect(supervisor.statusOf(alpha).status).toEqual("idle");
     });
 
     test("keeps every child when the timeout is disabled", async () => {

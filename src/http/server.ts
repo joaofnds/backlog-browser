@@ -45,7 +45,13 @@ export function startHub(options: {
           return json(activation);
         },
       },
-      "/api/status": () => noStore(json(statusesOf(registry, supervisor))),
+      "/api/status": (request) => {
+        const active = new URL(request.url).searchParams.get("active");
+        const viewed = active === null ? undefined : registry.find(active);
+        if (viewed) supervisor.touch(viewed);
+
+        return noStore(json(statusesOf(registry, supervisor)));
+      },
       "/api/refresh": {
         POST: async (request) => {
           const body = await bodyOf(request);
