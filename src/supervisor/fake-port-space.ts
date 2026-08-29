@@ -15,6 +15,11 @@ export class FakePortSpace {
     for (const port of ports) this.taken.add(port);
   }
 
+  /** Marks the next `count` ports the counter will hand out, without naming their numbers. */
+  occupyNext(count: number): void {
+    for (let ahead = 1; ahead <= count; ahead += 1) this.taken.add(this.next + ahead);
+  }
+
   isTaken(port: number): boolean {
     return this.taken.has(port);
   }

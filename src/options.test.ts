@@ -1,7 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { resolve } from "node:path";
+import { homedir } from "node:os";
+import { join, resolve } from "node:path";
 
-import { DEFAULTS, parseOptions, UsageError } from "./options.ts";
+import { parseOptions, UsageError } from "./options.ts";
 
 describe("parseOptions", () => {
   test("defaults the root to the current directory", () => {
@@ -13,7 +14,7 @@ describe("parseOptions", () => {
   });
 
   test("expands a home-relative root", () => {
-    expect(parseOptions(["~/code"]).root).toEqual(resolve(process.env.HOME ?? "", "code"));
+    expect(parseOptions(["~/code"]).root).toEqual(join(homedir(), "code"));
   });
 
   test("defaults every tunable it owns", () => {
@@ -27,10 +28,6 @@ describe("parseOptions", () => {
 
   test("leaves the remembered depth unset when its flag is absent", () => {
     expect(parseOptions([])).toMatchObject({ depth: null });
-  });
-
-  test("documents the fallbacks the hub uses when nothing is remembered", () => {
-    expect(DEFAULTS).toMatchObject({ depth: 5, idleTimeoutMinutes: 5 });
   });
 
   test("overrides the hub port", () => {

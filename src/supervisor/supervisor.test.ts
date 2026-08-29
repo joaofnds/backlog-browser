@@ -1,17 +1,18 @@
-import { beforeEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 
 import { Project } from "../discovery/project.ts";
 import { FakeBacklog } from "./fake-backlog.ts";
-import { Supervisor } from "./supervisor.ts";
+import { MAX_PORT_ATTEMPTS, Supervisor } from "./supervisor.ts";
 
 const alpha = new Project({ path: "/code/alpha", name: "Alpha" });
 const beta = new Project({ path: "/code/beta", name: "Beta" });
 
 let backlog: FakeBacklog;
 let clock: number;
+let supervisors: Supervisor[];
 
 function supervisorWith(overrides: Partial<ConstructorParameters<typeof Supervisor>[0]> = {}) {
-  return new Supervisor({
+  const supervisor = new Supervisor({
     launch: backlog.launch,
     probe: backlog.probe,
     portFor: backlog.portFor,
@@ -21,6 +22,9 @@ function supervisorWith(overrides: Partial<ConstructorParameters<typeof Supervis
     now: () => clock,
     ...overrides,
   });
+  supervisors.push(supervisor);
+
+  return supervisor;
 }
 
 async function activateReady(supervisor: Supervisor, project: Project) {
@@ -31,9 +35,19 @@ async function activateReady(supervisor: Supervisor, project: Project) {
   return supervisor.statusOf(project);
 }
 
+async function activateAllReady(supervisor: Supervisor, projects: readonly Project[]) {
+  for (const project of projects) await activateReady(supervisor, project);
+}
+
 beforeEach(() => {
   backlog = new FakeBacklog();
   clock = 0;
+  supervisors = [];
+});
+
+/** Drains the supervise loop each test's activations left polling against the shared clock. */
+afterEach(() => {
+  for (const supervisor of supervisors) supervisor.terminate();
 });
 
 describe("Supervisor", () => {
@@ -97,7 +111,7 @@ describe("Supervisor", () => {
       (name) => new Project({ path: `/code/${name}`, name }),
     );
 
-    for (const project of projects) await activateReady(supervisor, project);
+    await activateAllReady(supervisor, projects);
 
     expect(backlog.live).toHaveLength(projects.length);
   });
@@ -149,18 +163,18 @@ describe("Supervisor", () => {
 
   describe("when the port is taken", () => {
     test("retries on a fresh port", async () => {
-      backlog.occupy(40_001);
+      backlog.occupyNext(1);
+      backlog.answersAnywhere();
       const supervisor = supervisorWith();
 
       await supervisor.activate(alpha);
-      backlog.answerOn(40_002);
       await supervisor.settled(alpha);
 
       expect(supervisor.statusOf(alpha).status).toEqual("ready");
     });
 
     test("gives up after a bounded number of attempts", async () => {
-      backlog.occupy(40_001, 40_002, 40_003, 40_004, 40_005);
+      backlog.occupyNext(MAX_PORT_ATTEMPTS);
       const supervisor = supervisorWith();
 
       await supervisor.activate(alpha);
@@ -170,27 +184,28 @@ describe("Supervisor", () => {
     });
   });
 
-  describe("when a project has a remembered port", () => {
-    test("binds the same port again", async () => {
+  describe("when a child is respawned", () => {
+    test("asks for the port it had", async () => {
       const supervisor = supervisorWith();
       await supervisor.activate(alpha);
+      const first = backlog.childFor(alpha.path).spec.port;
       backlog.childFor(alpha.path).crash("bye");
       await supervisor.settled(alpha);
 
       await supervisor.activate(alpha);
 
-      expect(backlog.childFor(alpha.path).spec.port).toEqual(40_001);
+      expect(backlog.childFor(alpha.path).spec.port).toEqual(first);
     });
 
-    test("gives up on it once the child collides", async () => {
+    test("gives that port up once the child collides", async () => {
       const supervisor = supervisorWith();
       await supervisor.activate(alpha);
       backlog.childFor(alpha.path).crash("bye");
       await supervisor.settled(alpha);
-      backlog.occupy(40_001);
+      backlog.occupy(backlog.childFor(alpha.path).spec.port);
+      backlog.answersAnywhere();
 
       await supervisor.activate(alpha);
-      backlog.answerOn(40_002);
       await supervisor.settled(alpha);
 
       expect(supervisor.statusOf(alpha).status).toEqual("ready");

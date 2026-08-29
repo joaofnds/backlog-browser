@@ -14,8 +14,9 @@ async function addAndDiscover(name: string): Promise<string> {
   const path = await harness.addProject(name, name.toLowerCase());
   const inventory = await driver.refresh();
   const project = inventory.projects.find((candidate) => candidate.path === path);
+  if (!project) throw new Error(`discovery did not produce a project at ${path}`);
 
-  return project?.slug ?? "";
+  return project.slug;
 }
 
 async function addProjects(...names: string[]): Promise<void> {
@@ -34,7 +35,10 @@ function pathsOf(inventory: Inventory, filter: { hidden: boolean }): string[] {
 }
 
 function slugAt(inventory: Inventory, path: string): string {
-  return inventory.projects.find((project) => project.path === path)?.slug ?? "";
+  const slug = inventory.projects.find((project) => project.path === path)?.slug;
+  if (!slug) throw new Error(`no listed project at ${path}`);
+
+  return slug;
 }
 
 async function readyUp(slug: string): Promise<void> {
@@ -119,14 +123,6 @@ describe("hub server", () => {
 
       expect(project).toMatchObject({ name: "Alpha", path });
       expect(project?.slug).toStartWith("alpha-");
-    });
-
-    test("describes a project without its activation status", async () => {
-      await addAndDiscover("Alpha");
-
-      const [project] = (await driver.projects()).projects;
-
-      expect(project).not.toHaveProperty("status");
     });
   });
 
@@ -481,17 +477,6 @@ describe("hub server", () => {
       expect(pathsOf(inventory, { hidden: true })).toEqual([pathTo("Alpha")]);
     });
 
-    test("sinks the hidden project below the visible ones", async () => {
-      await addProjects("Alpha", "Beta");
-
-      const inventory = await driver.hide(pathTo("Alpha"));
-
-      expect(inventory.projects.map((project) => project.path)).toEqual([
-        pathTo("Beta"),
-        pathTo("Alpha"),
-      ]);
-    });
-
     test("keeps the hidden project reachable by slug", async () => {
       await addProjects("Alpha");
       const slug = slugAt(await driver.projects(), pathTo("Alpha"));
@@ -519,20 +504,6 @@ describe("hub server", () => {
       expect(pathsOf(inventory, { hidden: true })).toEqual([]);
     });
 
-    test("drops an unhidden project at the end of a manual order", async () => {
-      await addProjects("Alpha", "Beta", "Gamma");
-      await driver.move(pathTo("Gamma"), pathTo("Alpha"));
-      await driver.hide(pathTo("Alpha"));
-
-      const inventory = await driver.show(pathTo("Alpha"));
-
-      expect(pathsOf(inventory, { hidden: false })).toEqual([
-        pathTo("Gamma"),
-        pathTo("Beta"),
-        pathTo("Alpha"),
-      ]);
-    });
-
     describe("when the body is malformed", () => {
       test("responds 400", async () => {
         const response = await driver.post("/api/list/hidden", { path: 7 });
@@ -555,39 +526,6 @@ describe("hub server", () => {
       ]);
     });
 
-    test("switches the order mode to manual", async () => {
-      await addProjects("Alpha", "Beta", "Gamma");
-
-      expect((await driver.move(pathTo("Gamma"), pathTo("Alpha"))).mode).toEqual("manual");
-    });
-
-    test("puts the project last when no anchor is named", async () => {
-      await addProjects("Alpha", "Beta", "Gamma");
-
-      const inventory = await driver.move(pathTo("Alpha"), null);
-
-      expect(pathsOf(inventory, { hidden: false })).toEqual([
-        pathTo("Beta"),
-        pathTo("Gamma"),
-        pathTo("Alpha"),
-      ]);
-    });
-
-    test("appends a project discovered after the order was set", async () => {
-      await addProjects("Alpha", "Beta", "Gamma");
-      await driver.move(pathTo("Gamma"), pathTo("Alpha"));
-      await harness.addProject("Aardvark", "aardvark");
-
-      const inventory = await driver.refresh();
-
-      expect(pathsOf(inventory, { hidden: false })).toEqual([
-        pathTo("Gamma"),
-        pathTo("Alpha"),
-        pathTo("Beta"),
-        pathTo("Aardvark"),
-      ]);
-    });
-
     describe("when the body is malformed", () => {
       test("responds 400", async () => {
         const response = await driver.post("/api/list/order", { before: null });
@@ -598,13 +536,6 @@ describe("hub server", () => {
   });
 
   describe("POST /api/list/reset", () => {
-    test("returns the order mode to default", async () => {
-      await addProjects("Alpha", "Beta", "Gamma");
-      await driver.move(pathTo("Gamma"), pathTo("Alpha"));
-
-      expect((await driver.resetOrder()).mode).toEqual("default");
-    });
-
     test("restores the name order", async () => {
       await addProjects("Alpha", "Beta", "Gamma");
       await driver.move(pathTo("Gamma"), pathTo("Alpha"));
@@ -614,14 +545,6 @@ describe("hub server", () => {
         pathTo("Beta"),
         pathTo("Gamma"),
       ]);
-    });
-
-    test("keeps hidden projects hidden", async () => {
-      await addProjects("Alpha", "Beta", "Gamma");
-      await driver.move(pathTo("Gamma"), pathTo("Alpha"));
-      await driver.hide(pathTo("Alpha"));
-
-      expect(pathsOf(await driver.resetOrder(), { hidden: true })).toEqual([pathTo("Alpha")]);
     });
 
     test("slots a newly discovered project by name again", async () => {

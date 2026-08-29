@@ -81,6 +81,10 @@ export class FakeBacklog {
     this.kernel.occupy(...ports);
   }
 
+  occupyNext(count: number): void {
+    this.kernel.occupyNext(count);
+  }
+
   refusePorts(reason: string): void {
     this.refusal = reason;
   }
