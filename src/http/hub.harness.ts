@@ -3,7 +3,6 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { type App, startApp } from "../app.ts";
-import { DiscoveryCache } from "../discovery/cache.ts";
 import type { ChosenFolder } from "../discovery/choose-folder.ts";
 import type { Project } from "../discovery/project.ts";
 import { StateStore } from "../state/store.ts";
@@ -67,8 +66,8 @@ export class HubHarness {
         probe: backlog.probe,
         allocate: backlog.allocatePort,
         chooseFolder: chooser.choose,
-        store: new StateStore({ file: join(root, ".state", "state.json") }),
-        cache: new DiscoveryCache({ file: join(root, ".state", "discovery.json") }),
+        store: new StateStore({ file: join(root, ".state", "state.json"), root }),
+        cacheFile: join(root, ".state", "discovery.json"),
         readyTimeoutMs: 1_000,
         pollIntervalMs: 0,
       },

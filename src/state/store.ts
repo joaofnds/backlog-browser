@@ -1,67 +1,67 @@
+import { asRecord, fieldOf } from "../json.ts";
 import { ProjectList } from "../list/list.ts";
-import { readJsonObject, stateFile, writeJson } from "./json-store.ts";
-import { PortBook } from "./port-book.ts";
-import { HubSettings } from "./settings.ts";
+import { readRoots, stateFile, writeJson } from "./json-store.ts";
+import { SETTING_BOUNDS, within } from "./settings.ts";
+
+const LOWEST_PORT = 1;
+const HIGHEST_PORT = 65_535;
 
 type RootState = {
   readonly active: string | null;
   readonly list: ProjectList;
-  readonly ports: PortBook;
-  readonly settings: HubSettings;
+  readonly ports: Readonly<Record<string, number>>;
+  readonly depth: number | null;
 };
 
 export class StateStore {
   private readonly file: string;
+  private readonly root: string;
   private writes: Promise<unknown> = Promise.resolve();
 
-  constructor(props: { file: string }) {
+  constructor(props: { file: string; root: string }) {
     this.file = props.file;
+    this.root = props.root;
   }
 
-  static default(): StateStore {
-    return new StateStore({ file: stateFile("state.json") });
+  static default(root: string): StateStore {
+    return new StateStore({ file: stateFile("state.json"), root });
   }
 
-  async lastActive(root: string): Promise<string | null> {
-    return (await this.stateOf(root)).active;
+  async lastActive(): Promise<string | null> {
+    return (await this.state()).active;
   }
 
-  async list(root: string): Promise<ProjectList> {
-    return (await this.stateOf(root)).list;
+  async list(): Promise<ProjectList> {
+    return (await this.state()).list;
   }
 
-  async ports(root: string): Promise<PortBook> {
-    return (await this.stateOf(root)).ports;
+  /** `null` is a depth never chosen, which is what lets a flag win without erasing a choice. */
+  async depth(): Promise<number | null> {
+    return (await this.state()).depth;
   }
 
-  async settings(root: string): Promise<HubSettings> {
-    return (await this.stateOf(root)).settings;
+  async portFor(path: string): Promise<number | null> {
+    return (await this.state()).ports[path] ?? null;
   }
 
-  async remember(root: string, slug: string): Promise<void> {
-    await this.update(root, (current) => ({ ...current, active: slug }));
+  async remember(slug: string): Promise<void> {
+    await this.update((current) => ({ ...current, active: slug }));
   }
 
-  async updateList(root: string, change: (list: ProjectList) => ProjectList): Promise<ProjectList> {
-    return (await this.update(root, (current) => ({ ...current, list: change(current.list) })))
-      .list;
+  async rememberDepth(depth: number): Promise<void> {
+    await this.update((current) => ({ ...current, depth }));
   }
 
-  async updateSettings(
-    root: string,
-    change: (settings: HubSettings) => HubSettings,
-  ): Promise<HubSettings> {
-    return (
-      await this.update(root, (current) => ({ ...current, settings: change(current.settings) }))
-    ).settings;
+  async rememberPort(path: string, port: number): Promise<void> {
+    await this.update((current) => ({ ...current, ports: { ...current.ports, [path]: port } }));
   }
 
-  async rememberPort(root: string, path: string, port: number): Promise<void> {
-    await this.update(root, (current) => ({ ...current, ports: current.ports.assign(path, port) }));
+  async updateList(change: (list: ProjectList) => ProjectList): Promise<ProjectList> {
+    return (await this.update((current) => ({ ...current, list: change(current.list) }))).list;
   }
 
-  private async stateOf(root: string): Promise<RootState> {
-    return readRoot((await this.roots())[root]);
+  private async state(): Promise<RootState> {
+    return readRoot((await readRoots(this.file))[this.root]);
   }
 
   /**
@@ -69,38 +69,30 @@ export class StateStore {
    * one update. Activating a project, reordering the list and claiming a port are separate writers,
    * so queue them, and read the current state inside the queue rather than before joining it.
    */
-  private update(root: string, change: (current: RootState) => RootState): Promise<RootState> {
-    const done = this.writes.then(() => this.apply(root, change));
+  private update(change: (current: RootState) => RootState): Promise<RootState> {
+    const done = this.writes.then(() => this.apply(change));
     this.writes = done.catch(() => {});
 
     return done;
   }
 
-  private async apply(root: string, change: (current: RootState) => RootState): Promise<RootState> {
-    const roots = await this.roots();
-    const next = change(readRoot(roots[root]));
+  private async apply(change: (current: RootState) => RootState): Promise<RootState> {
+    const roots = await readRoots(this.file);
+    const next = change(readRoot(roots[this.root]));
 
     await writeJson(this.file, {
       roots: {
         ...roots,
-        [root]: {
+        [this.root]: {
           active: next.active,
           ...next.list.toJSON(),
-          ports: next.ports.toJSON(),
-          settings: next.settings.toJSON(),
+          ports: next.ports,
+          settings: { depth: next.depth },
         },
       },
     });
 
     return next;
-  }
-
-  private async roots(): Promise<Record<string, unknown>> {
-    const roots = (await readJsonObject(this.file)).roots;
-
-    return typeof roots === "object" && roots !== null && !Array.isArray(roots)
-      ? (roots as Record<string, unknown>)
-      : {};
   }
 }
 
@@ -108,16 +100,34 @@ function readRoot(stored: unknown): RootState {
   return {
     active: activeOf(stored),
     list: ProjectList.from(stored),
-    ports: PortBook.from(stored),
-    settings: HubSettings.from(stored),
+    ports: portsOf(fieldOf(stored, "ports")),
+    depth: within(fieldOf(fieldOf(stored, "settings"), "depth"), SETTING_BOUNDS.depth),
   };
 }
 
 function activeOf(stored: unknown): string | null {
-  if (typeof stored === "string") return stored === "" ? null : stored;
-  if (typeof stored !== "object" || stored === null || Array.isArray(stored)) return null;
-
-  const active = (stored as Record<string, unknown>).active;
+  const active = fieldOf(stored, "active");
 
   return typeof active === "string" && active !== "" ? active : null;
+}
+
+function portsOf(value: unknown): Record<string, number> {
+  const stored = asRecord(value);
+  if (stored === null) return {};
+
+  const ports: Record<string, number> = {};
+  for (const [path, port] of Object.entries(stored)) {
+    if (isPort(port)) ports[path] = port;
+  }
+
+  return ports;
+}
+
+function isPort(value: unknown): value is number {
+  return (
+    typeof value === "number" &&
+    Number.isInteger(value) &&
+    value >= LOWEST_PORT &&
+    value <= HIGHEST_PORT
+  );
 }

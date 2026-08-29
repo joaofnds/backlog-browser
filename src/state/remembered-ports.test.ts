@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-
+import { FakePortSpace } from "../supervisor/fake-port-space.ts";
 import type { PortAllocator } from "../supervisor/supervisor.ts";
 import { rememberedPorts } from "./remembered-ports.ts";
 import { StateStore } from "./store.ts";
@@ -11,32 +11,13 @@ const ROOT = "/code";
 const ALPHA = "/code/alpha";
 const BETA = "/code/beta";
 
-/** Stands in for the kernel: a free preferred port is honoured, anything else is the next one up. */
-class FakePortSpace {
-  private readonly taken = new Set<number>();
-  private next = 40_000;
-
-  allocate = async (preferred = 0): Promise<number> => {
-    if (preferred !== 0 && !this.taken.has(preferred)) return preferred;
-
-    this.next += 1;
-
-    return this.next;
-  };
-
-  occupy(port: number): void {
-    this.taken.add(port);
-  }
-}
-
 let directory: string;
 let file: string;
 let kernel: FakePortSpace;
 
-function hubRun(): PortAllocator {
+function hubRun(root = ROOT): PortAllocator {
   return rememberedPorts({
-    store: new StateStore({ file }),
-    root: ROOT,
+    store: new StateStore({ file, root }),
     allocate: kernel.allocate,
   });
 }
@@ -78,14 +59,9 @@ describe("rememberedPorts", () => {
   });
 
   test("keeps one port per root", async () => {
-    const other = rememberedPorts({
-      store: new StateStore({ file }),
-      root: "/work",
-      allocate: kernel.allocate,
-    });
     const first = await hubRun()({ path: ALPHA, reuse: true });
 
-    expect(await other({ path: ALPHA, reuse: true })).not.toEqual(first);
+    expect(await hubRun("/work")({ path: ALPHA, reuse: true })).not.toEqual(first);
   });
 
   describe("when the remembered port cannot be had", () => {

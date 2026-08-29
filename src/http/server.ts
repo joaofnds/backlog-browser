@@ -1,6 +1,7 @@
 import type { FolderChooser } from "../discovery/choose-folder.ts";
 import { readProject } from "../discovery/discovery.ts";
 import type { ProjectRegistry } from "../discovery/registry.ts";
+import { asRecord } from "../json.ts";
 import type { ListedProject } from "../list/list.ts";
 import shellHtml from "../shell/index.html" with { type: "text" };
 import shellCss from "../shell/shell.css" with { type: "text" };
@@ -40,7 +41,7 @@ export function startHub(options: {
           if (!project) return json({ error: "unknown project" }, 404);
 
           const activation = await supervisor.activate(project);
-          await store.remember(registry.root, project.slug);
+          await store.remember(project.slug);
 
           return json(activation);
         },
@@ -60,9 +61,7 @@ export function startHub(options: {
             return json({ error: outOfRange("depth", SETTING_BOUNDS.depth) }, 400);
           }
 
-          if (depth !== null) {
-            await store.updateSettings(registry.root, (settings) => settings.withDepth(depth));
-          }
+          if (depth !== null) await store.rememberDepth(depth);
           await registry.refresh(depth ?? undefined);
 
           return json(await inventoryOf(registry, store));
@@ -88,7 +87,7 @@ export function startHub(options: {
             return json({ error: "no backlog/config.yml in that folder" }, 400);
           }
 
-          const list = await store.updateList(registry.root, (current) =>
+          const list = await store.updateList((current) =>
             added ? current.add(path) : current.drop(path),
           );
           await registry.adopt(list.added);
@@ -103,9 +102,7 @@ export function startHub(options: {
           const hidden = booleanAt(body, "hidden");
           if (path === null || hidden === null) return json({ error: "path and hidden" }, 400);
 
-          await store.updateList(registry.root, (list) =>
-            hidden ? list.hide(path) : list.show(path),
-          );
+          await store.updateList((list) => (hidden ? list.hide(path) : list.show(path)));
 
           return json(await inventoryOf(registry, store));
         },
@@ -117,16 +114,14 @@ export function startHub(options: {
           const before = anchorAt(body, "before");
           if (path === null || before === undefined) return json({ error: "path and before" }, 400);
 
-          await store.updateList(registry.root, (list) =>
-            list.move({ path, before, discovered: registry.all() }),
-          );
+          await store.updateList((list) => list.move({ path, before, discovered: registry.all() }));
 
           return json(await inventoryOf(registry, store));
         },
       },
       "/api/list/reset": {
         POST: async () => {
-          await store.updateList(registry.root, (list) => list.reset());
+          await store.updateList((list) => list.reset());
 
           return json(await inventoryOf(registry, store));
         },
@@ -137,13 +132,13 @@ export function startHub(options: {
 }
 
 async function inventoryOf(registry: ProjectRegistry, store: StateStore) {
-  const list = await store.list(registry.root);
+  const list = await store.list();
   const kept = keptByHand(list.added, registry.walked());
 
   return {
     root: registry.root,
     depth: registry.depth,
-    active: await store.lastActive(registry.root),
+    active: await store.lastActive(),
     mode: list.mode,
     projects: list.arrange(registry.all()).map((listed) => describe(listed, kept)),
   };
@@ -180,9 +175,7 @@ function describe(listed: ListedProject, kept: ReadonlySet<string>) {
 async function bodyOf(request: Request): Promise<Record<string, unknown>> {
   const body = await request.json().catch(() => null);
 
-  return typeof body === "object" && body !== null && !Array.isArray(body)
-    ? (body as Record<string, unknown>)
-    : {};
+  return asRecord(body) ?? {};
 }
 
 function stringAt(body: Record<string, unknown>, key: string): string | null {

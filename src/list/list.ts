@@ -1,4 +1,5 @@
 import type { Project } from "../discovery/project.ts";
+import { asRecord } from "../json.ts";
 
 export type OrderMode = "default" | "manual";
 
@@ -31,11 +32,8 @@ export class ProjectList {
   }
 
   static from(value: unknown): ProjectList {
-    if (typeof value !== "object" || value === null || Array.isArray(value)) {
-      return ProjectList.empty();
-    }
-
-    const stored = value as Record<string, unknown>;
+    const stored = asRecord(value);
+    if (stored === null) return ProjectList.empty();
 
     return new ProjectList({
       mode: stored.mode === "manual" ? "manual" : "default",

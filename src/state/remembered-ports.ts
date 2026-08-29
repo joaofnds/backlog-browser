@@ -8,14 +8,13 @@ import type { StateStore } from "./store.ts";
  */
 export function rememberedPorts(props: {
   store: StateStore;
-  root: string;
   allocate: (preferred: number) => Promise<number>;
 }): PortAllocator {
   return async ({ path, reuse }) => {
-    const remembered = reuse ? (await props.store.ports(props.root)).portFor(path) : null;
+    const remembered = reuse ? await props.store.portFor(path) : null;
     const port = await props.allocate(remembered ?? 0);
 
-    await props.store.rememberPort(props.root, path, port);
+    await props.store.rememberPort(path, port);
 
     return port;
   };

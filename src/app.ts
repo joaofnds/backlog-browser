@@ -1,4 +1,3 @@
-import type { DiscoveryCache } from "./discovery/cache.ts";
 import type { FolderChooser } from "./discovery/choose-folder.ts";
 import { ProjectRegistry } from "./discovery/registry.ts";
 import { startHub } from "./http/server.ts";
@@ -36,26 +35,26 @@ export async function startApp(
     allocate: (preferred: number) => Promise<number>;
     chooseFolder: FolderChooser;
     store: StateStore;
-    cache: DiscoveryCache;
+    cacheFile: string;
     readyTimeoutMs: number;
     pollIntervalMs?: number;
     now?: () => number;
   },
 ): Promise<App> {
-  const { store, cache } = deps;
+  const { store } = deps;
 
-  const remembered = await store.settings(options.root);
-  const depth = options.depth ?? remembered.depth ?? DEFAULTS.depth;
-  await store.updateSettings(options.root, (settings) => settings.withDepth(depth));
+  const remembered = await store.depth();
+  const depth = options.depth ?? remembered ?? DEFAULTS.depth;
+  await store.rememberDepth(depth);
 
-  const registry = new ProjectRegistry({ root: options.root, depth, cache });
+  const registry = new ProjectRegistry({ root: options.root, depth, file: deps.cacheFile });
   await (options.rescan ? registry.refresh() : registry.load());
-  await registry.adopt((await store.list(options.root)).added);
+  await registry.adopt((await store.list()).added);
 
   const supervisor = new Supervisor({
     launch: deps.launch,
     probe: deps.probe,
-    portFor: rememberedPorts({ store, root: options.root, allocate: deps.allocate }),
+    portFor: rememberedPorts({ store, allocate: deps.allocate }),
     idleTimeoutMs: options.idleTimeoutMs,
     readyTimeoutMs: deps.readyTimeoutMs,
     pollIntervalMs: deps.pollIntervalMs,

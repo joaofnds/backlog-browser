@@ -1,25 +1,21 @@
-import type { DiscoveryCache } from "./cache.ts";
-import { findProjectPaths, type ProjectFinder, readProjects } from "./discovery.ts";
+import { asRecord } from "../json.ts";
+import { readRoots, writeJson } from "../state/json-store.ts";
+import { findProjectPaths, readProjects } from "./discovery.ts";
 import { Project } from "./project.ts";
+
+type CachedScan = { depth: number; paths: string[] };
 
 export class ProjectRegistry {
   readonly root: string;
   private currentDepth: number;
-  private readonly cache: DiscoveryCache;
-  private readonly walk: ProjectFinder;
+  private readonly file: string;
   private discovered: Project[] = [];
   private adopted: Project[] = [];
 
-  constructor(props: {
-    root: string;
-    depth: number;
-    cache: DiscoveryCache;
-    find?: ProjectFinder;
-  }) {
+  constructor(props: { root: string; depth: number; file: string }) {
     this.root = props.root;
     this.currentDepth = props.depth;
-    this.cache = props.cache;
-    this.walk = props.find ?? findProjectPaths;
+    this.file = props.file;
   }
 
   get depth(): number {
@@ -27,7 +23,7 @@ export class ProjectRegistry {
   }
 
   async load(): Promise<readonly Project[]> {
-    const cached = await this.cache.read(this.root, this.currentDepth);
+    const cached = await this.cachedScan();
     if (cached === null) return this.refresh();
 
     this.discovered = await readProjects(cached);
@@ -38,7 +34,7 @@ export class ProjectRegistry {
 
   async refresh(depth = this.currentDepth): Promise<readonly Project[]> {
     this.currentDepth = depth;
-    this.discovered = await readProjects(await this.walk({ root: this.root, depth }));
+    this.discovered = await readProjects(await findProjectPaths({ root: this.root, depth }));
     await this.save();
 
     return this.all();
@@ -71,11 +67,36 @@ export class ProjectRegistry {
     return this.all().find((project) => project.slug === slug);
   }
 
-  private async save(): Promise<void> {
-    await this.cache.write(
-      this.root,
-      this.currentDepth,
-      this.discovered.map((project) => project.path),
-    );
+  /** The cache is keyed by depth, so a shallower saved walk misses rather than serving less. */
+  private async cachedScan(): Promise<string[] | null> {
+    const scan = asScan((await readRoots(this.file))[this.root]);
+    if (scan === null || scan.depth !== this.currentDepth) return null;
+
+    return scan.paths;
   }
+
+  private async save(): Promise<void> {
+    const roots = await readRoots(this.file);
+
+    await writeJson(this.file, {
+      roots: {
+        ...roots,
+        [this.root]: {
+          depth: this.currentDepth,
+          paths: this.discovered.map((project) => project.path),
+        },
+      },
+    });
+  }
+}
+
+function asScan(value: unknown): CachedScan | null {
+  const stored = asRecord(value);
+  if (stored === null) return null;
+
+  const { depth, paths } = stored;
+  if (typeof depth !== "number") return null;
+  if (!Array.isArray(paths) || paths.some((path) => typeof path !== "string")) return null;
+
+  return { depth, paths: paths as string[] };
 }

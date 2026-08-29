@@ -1,4 +1,5 @@
 import type { ChildLauncher, ChildProcess, LaunchSpec, ReadinessProbe } from "./child.ts";
+import { FakePortSpace } from "./fake-port-space.ts";
 import type { PortAllocator } from "./supervisor.ts";
 
 export class FakeChild implements ChildProcess {
@@ -44,20 +45,19 @@ export class FakeChild implements ChildProcess {
 
 export class FakeBacklog {
   readonly launches: LaunchSpec[] = [];
+  private readonly kernel = new FakePortSpace();
   private readonly children: FakeChild[] = [];
   private readonly listening = new Set<number>();
   private readonly remembered = new Map<string, number>();
-  private occupied = new Set<number>();
   private refusal: string | null = null;
   private everyPortListens = false;
-  private nextPort = 40_000;
 
   launch: ChildLauncher = (spec) => {
     this.launches.push(spec);
     const child = new FakeChild(spec);
     this.children.push(child);
 
-    if (this.occupied.has(spec.port)) {
+    if (this.kernel.isTaken(spec.port)) {
       queueMicrotask(() => child.crash(`error: EADDRINUSE: port ${spec.port} is in use`));
     }
 
@@ -65,16 +65,9 @@ export class FakeBacklog {
   };
 
   probe: ReadinessProbe = async (port) =>
-    this.listening.has(port) || (this.everyPortListens && !this.occupied.has(port));
+    this.listening.has(port) || (this.everyPortListens && !this.kernel.isTaken(port));
 
-  /** Stands in for the kernel: a free preferred port is honoured, anything else is the next one up. */
-  allocatePort = async (preferred = 0): Promise<number> => {
-    if (preferred !== 0 && !this.occupied.has(preferred)) return preferred;
-
-    this.nextPort += 1;
-
-    return this.nextPort;
-  };
+  allocatePort = this.kernel.allocate;
 
   portFor: PortAllocator = async ({ path, reuse }) => {
     if (this.refusal !== null) throw new Error(this.refusal);
@@ -86,7 +79,7 @@ export class FakeBacklog {
   };
 
   occupy(...ports: number[]): void {
-    this.occupied = new Set(ports);
+    this.kernel.occupy(...ports);
   }
 
   refusePorts(reason: string): void {

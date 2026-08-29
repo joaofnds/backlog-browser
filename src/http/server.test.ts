@@ -106,7 +106,7 @@ describe("hub server", () => {
     });
 
     test("reports the project remembered by an earlier hub run", async () => {
-      await harness.store.remember(harness.root, "remembered-0badcafe");
+      await harness.store.remember("remembered-0badcafe");
 
       expect((await driver.projects()).active).toEqual("remembered-0badcafe");
     });
@@ -403,7 +403,7 @@ describe("hub server", () => {
 
       await driver.activate(slug);
 
-      expect(await harness.store.lastActive(harness.root)).toEqual(slug);
+      expect(await harness.store.lastActive()).toEqual(slug);
     });
 
     describe("when the slug is unknown", () => {

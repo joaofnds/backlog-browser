@@ -1,8 +1,8 @@
 #!/usr/bin/env bun
 import { type App, startApp } from "./app.ts";
-import { DiscoveryCache } from "./discovery/cache.ts";
 import { nativeFolderChooser } from "./discovery/choose-folder.ts";
 import { type HubOptions, parseOptions, USAGE, UsageError, wantsHelp } from "./options.ts";
+import { stateFile } from "./state/json-store.ts";
 import { StateStore } from "./state/store.ts";
 import { BacklogUnavailable, locateBacklog } from "./supervisor/backlog-cli.ts";
 import { allocatePort, backlogLauncher, probeBacklogConfig } from "./supervisor/child.ts";
@@ -35,8 +35,8 @@ async function main(argv: string[]): Promise<void> {
       probe: probeBacklogConfig,
       allocate: allocatePort,
       chooseFolder: nativeFolderChooser,
-      store: StateStore.default(),
-      cache: DiscoveryCache.default(),
+      store: StateStore.default(options.root),
+      cacheFile: stateFile("discovery.json"),
       readyTimeoutMs: READY_TIMEOUT_MS,
     });
   } catch (error) {
