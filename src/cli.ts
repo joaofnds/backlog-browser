@@ -32,7 +32,7 @@ async function main(argv: string[]): Promise<void> {
     return die(error instanceof UsageError ? error.message : String(error));
   }
 
-  let backlog: { binary: string; version: string };
+  let backlog: { binary: string };
   try {
     backlog = await locateBacklog();
   } catch (error) {

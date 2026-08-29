@@ -3,7 +3,9 @@ export const REQUIRED_FLAGS = ["--port", "--non-interactive"] as const;
 
 export type CommandRunner = (command: string[]) => Promise<{ ok: boolean; stdout: string }>;
 
-export type BacklogCli = { binary: string; version: string };
+export type BacklogCli = { binary: string };
+
+const PREFLIGHT_TIMEOUT_MS = 10_000;
 
 export class BacklogUnavailable extends Error {}
 
@@ -30,12 +32,16 @@ export async function locateBacklog(options: { run?: CommandRunner } = {}): Prom
     );
   }
 
-  return { binary: BINARY, version: version.stdout.trim() };
+  return { binary: BINARY };
 }
 
-async function spawnCommand(command: string[]): Promise<{ ok: boolean; stdout: string }> {
+/** A wrapper that hangs would otherwise hang startup with no output at all. */
+export async function spawnCommand(
+  command: string[],
+  timeoutMs = PREFLIGHT_TIMEOUT_MS,
+): Promise<{ ok: boolean; stdout: string }> {
   try {
-    const child = Bun.spawn(command, { stdout: "pipe", stderr: "ignore" });
+    const child = Bun.spawn(command, { stdout: "pipe", stderr: "ignore", timeout: timeoutMs });
     const stdout = await new Response(child.stdout).text();
 
     return { ok: (await child.exited) === 0, stdout };

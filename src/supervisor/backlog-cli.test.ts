@@ -1,6 +1,11 @@
 import { describe, expect, test } from "bun:test";
 
-import { BacklogUnavailable, type CommandRunner, locateBacklog } from "./backlog-cli.ts";
+import {
+  BacklogUnavailable,
+  type CommandRunner,
+  locateBacklog,
+  spawnCommand,
+} from "./backlog-cli.ts";
 
 const REAL_HELP = `Usage: backlog browser [options]
 
@@ -21,10 +26,10 @@ const workingBacklog = runnerFor({
 });
 
 describe("locateBacklog", () => {
-  test("reports the binary and its version", async () => {
+  test("reports the binary to run", async () => {
     const backlog = await locateBacklog({ run: workingBacklog });
 
-    expect(backlog).toEqual({ binary: "backlog", version: "1.50.1" });
+    expect(backlog).toEqual({ binary: "backlog" });
   });
 
   describe("when backlog is not on PATH", () => {
@@ -54,12 +59,12 @@ describe("locateBacklog", () => {
       await expect(locateBacklog({ run })).rejects.toThrow(/2\.0\.0/);
     });
   });
+});
 
-  describe("against the backlog installed on this machine", () => {
-    test("accepts the browser command", async () => {
-      const backlog = await locateBacklog();
+describe("spawnCommand", () => {
+  test("gives up on a command that hangs", async () => {
+    const outcome = await spawnCommand(["sleep", "10"], 50);
 
-      expect(backlog.version).toMatch(/^\d+\.\d+\.\d+/);
-    });
+    expect(outcome).toEqual({ ok: false, stdout: "" });
   });
 });

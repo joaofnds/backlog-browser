@@ -150,8 +150,9 @@ describe("hub server", () => {
       harness = await harness.restart();
       driver = harness.driver();
       harness.backlog.occupy(before);
+      harness.backlog.answersAnywhere();
       await driver.activate(slug);
-      await readyUp(slug);
+      await harness.supervisor.settled(harness.projectFor(slug));
 
       expect(await (await driver.status(slug)).json()).toMatchObject({ status: "ready" });
     });

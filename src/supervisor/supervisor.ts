@@ -90,7 +90,13 @@ export class Supervisor {
     };
     this.entries.set(project.slug, entry);
 
-    await this.spawn(entry, { reuse: true });
+    try {
+      await this.spawn(entry, { reuse: true });
+    } catch (cause) {
+      entry.activation = this.portFailure(entry, cause);
+
+      return entry.activation;
+    }
     entry.settling = this.supervise(entry, 1);
 
     return { status: "starting" };
@@ -114,27 +120,35 @@ export class Supervisor {
     }
   }
 
+  /** Children stay listed until they exit, so a `terminate` racing this still finds them. */
   async shutdown(): Promise<void> {
     this.stopped = true;
 
-    const children = [...this.entries.values()]
-      .map((entry) => entry.child)
-      .filter((child): child is ChildProcess => child !== null);
-    this.entries.clear();
-
+    const children = this.children();
     for (const child of children) child.kill();
     await Promise.all(children.map((child) => child.exited));
+
+    this.entries.clear();
   }
 
   terminate(): void {
     this.stopped = true;
 
-    for (const entry of this.entries.values()) entry.child?.terminate();
+    for (const child of this.children()) child.terminate();
     this.entries.clear();
   }
 
+  private children(): ChildProcess[] {
+    return [...this.entries.values()]
+      .map((entry) => entry.child)
+      .filter((child): child is ChildProcess => child !== null);
+  }
+
   private async spawn(entry: Entry, options: { reuse: boolean }): Promise<void> {
-    entry.port = await this.portFor({ path: entry.project.path, reuse: options.reuse });
+    const port = await this.portFor({ path: entry.project.path, reuse: options.reuse });
+    if (this.stopped) return;
+
+    entry.port = port;
     entry.child = this.launch({ cwd: entry.project.path, port: entry.port });
   }
 
@@ -151,11 +165,25 @@ export class Supervisor {
     }
 
     if (outcome.kind === "collision" && attempt < MAX_PORT_ATTEMPTS) {
-      await this.spawn(entry, { reuse: false });
+      try {
+        await this.spawn(entry, { reuse: false });
+      } catch (cause) {
+        entry.activation = this.portFailure(entry, cause);
+        return;
+      }
       return this.supervise(entry, attempt + 1);
     }
 
     entry.activation = this.failure(entry, child, outcome);
+  }
+
+  private portFailure(entry: Entry, cause: unknown): Activation {
+    const reason = cause instanceof Error ? cause.message : String(cause);
+
+    return {
+      status: "failed",
+      error: `Could not get a port for ${entry.project.name}: ${reason}`,
+    };
   }
 
   private failure(entry: Entry, child: ChildProcess, outcome: Failure): Activation {

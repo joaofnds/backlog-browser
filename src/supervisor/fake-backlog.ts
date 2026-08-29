@@ -7,6 +7,7 @@ export class FakeChild implements ChildProcess {
   killed = false;
 
   private stderr = "";
+  private stubborn = false;
   private settle!: (code: number) => void;
 
   constructor(readonly spec: LaunchSpec) {
@@ -20,12 +21,19 @@ export class FakeChild implements ChildProcess {
   }
 
   kill(): void {
+    if (this.stubborn) return;
+
     this.killed = true;
     this.settle(0);
   }
 
   terminate(): void {
-    this.kill();
+    this.killed = true;
+    this.settle(0);
+  }
+
+  ignoresTermination(): void {
+    this.stubborn = true;
   }
 
   crash(stderr: string, code = 1): void {
@@ -40,6 +48,8 @@ export class FakeBacklog {
   private readonly listening = new Set<number>();
   private readonly remembered = new Map<string, number>();
   private occupied = new Set<number>();
+  private refusal: string | null = null;
+  private everyPortListens = false;
   private nextPort = 40_000;
 
   launch: ChildLauncher = (spec) => {
@@ -54,7 +64,8 @@ export class FakeBacklog {
     return child;
   };
 
-  probe: ReadinessProbe = async (port) => this.listening.has(port);
+  probe: ReadinessProbe = async (port) =>
+    this.listening.has(port) || (this.everyPortListens && !this.occupied.has(port));
 
   /** Stands in for the kernel: a free preferred port is honoured, anything else is the next one up. */
   allocatePort = async (preferred = 0): Promise<number> => {
@@ -66,6 +77,8 @@ export class FakeBacklog {
   };
 
   portFor: PortAllocator = async ({ path, reuse }) => {
+    if (this.refusal !== null) throw new Error(this.refusal);
+
     const port = await this.allocatePort(reuse ? (this.remembered.get(path) ?? 0) : 0);
     this.remembered.set(path, port);
 
@@ -76,8 +89,21 @@ export class FakeBacklog {
     this.occupied = new Set(ports);
   }
 
+  refusePorts(reason: string): void {
+    this.refusal = reason;
+  }
+
+  grantPorts(): void {
+    this.refusal = null;
+  }
+
   answerOn(port: number): void {
     this.listening.add(port);
+  }
+
+  /** Every unoccupied port answers, so a test survives the child landing wherever it retries to. */
+  answersAnywhere(): void {
+    this.everyPortListens = true;
   }
 
   childAt(index: number): FakeChild {

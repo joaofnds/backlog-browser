@@ -1,3 +1,4 @@
+import { rename } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
@@ -20,6 +21,9 @@ export async function readJsonObject(file: string): Promise<Record<string, unkno
   return parsed as Record<string, unknown>;
 }
 
+/** Written beside and renamed over, so a crash mid-write cannot leave a half-written file. */
 export async function writeJson(file: string, value: unknown): Promise<void> {
-  await Bun.write(file, `${JSON.stringify(value, null, 2)}\n`);
+  const scratch = `${file}.tmp`;
+  await Bun.write(scratch, `${JSON.stringify(value, null, 2)}\n`);
+  await rename(scratch, file);
 }

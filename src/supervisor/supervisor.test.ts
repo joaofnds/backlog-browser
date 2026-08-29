@@ -197,6 +197,39 @@ describe("Supervisor", () => {
     });
   });
 
+  describe("when no port can be had", () => {
+    test("reports the failure", async () => {
+      backlog.refusePorts("the state directory is not writable");
+      const supervisor = supervisorWith();
+
+      await supervisor.activate(alpha);
+
+      expect(supervisor.statusOf(alpha)).toMatchObject({ status: "failed" });
+    });
+
+    test("spawns a replacement when the project is activated again", async () => {
+      backlog.refusePorts("the state directory is not writable");
+      const supervisor = supervisorWith();
+      await supervisor.activate(alpha);
+
+      backlog.grantPorts();
+      const activation = await activateReady(supervisor, alpha);
+
+      expect(activation.status).toEqual("ready");
+    });
+
+    test("reports the failure when the retry port is refused too", async () => {
+      backlog.occupy(40_001);
+      const supervisor = supervisorWith();
+
+      await supervisor.activate(alpha);
+      backlog.refusePorts("the state directory is not writable");
+      await supervisor.settled(alpha);
+
+      expect(supervisor.statusOf(alpha)).toMatchObject({ status: "failed" });
+    });
+  });
+
   describe("when the child never answers", () => {
     test("fails once the readiness timeout passes", async () => {
       const supervisor = supervisorWith({ readyTimeoutMs: 50 });
@@ -302,6 +335,35 @@ describe("Supervisor", () => {
       await supervisor.activate(alpha);
 
       expect(backlog.launches).toEqual([]);
+    });
+
+    test("launches nothing when shutdown lands during port allocation", async () => {
+      let grant!: (port: number) => void;
+      const supervisor = supervisorWith({
+        portFor: () =>
+          new Promise((resolve) => {
+            grant = resolve;
+          }),
+      });
+
+      const activating = supervisor.activate(alpha);
+      await supervisor.shutdown();
+      grant(40_123);
+      await activating;
+
+      expect(backlog.launches).toEqual([]);
+    });
+
+    test("force-kills a child that survives shutdown", async () => {
+      const supervisor = supervisorWith();
+      await activateReady(supervisor, alpha);
+      backlog.childFor(alpha.path).ignoresTermination();
+
+      const stopping = supervisor.shutdown();
+      supervisor.terminate();
+      await stopping;
+
+      expect(backlog.live).toEqual([]);
     });
   });
 });
