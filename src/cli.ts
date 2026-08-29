@@ -77,7 +77,10 @@ function installShutdown(handlers: { stop: () => Promise<void>; force: () => voi
       stopping = true;
       handlers.stop().then(
         () => process.exit(0),
-        () => process.exit(1),
+        (error) => {
+          console.error(error);
+          process.exit(1);
+        },
       );
     });
   };
