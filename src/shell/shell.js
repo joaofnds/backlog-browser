@@ -52,6 +52,7 @@ let statusTimer;
 let highlighted = 0;
 /** @type {string | null} */
 let dragging = null;
+let activationEpoch = 0;
 
 /** @type {Map<string, HTMLIFrameElement>} */
 const frames = new Map();
@@ -62,17 +63,30 @@ function visible() {
   return inventory.projects.filter((project) => !project.hidden);
 }
 
+/** @param {string} slug */
+function projectRoute(slug) {
+  return `/api/projects/${encodeURIComponent(slug)}`;
+}
+
+/**
+ * @param {unknown} body
+ * @returns {RequestInit}
+ */
+function postJson(body) {
+  return {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  };
+}
+
 /**
  * @param {string} route
  * @param {unknown} body
  */
 async function mutate(route, body) {
-  const response = await fetch(route, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(body),
-  }).catch(() => null);
-  if (!response?.ok) return;
+  const response = await fetch(route, postJson(body)).catch(() => null);
+  if (!response?.ok) return showNotice(await reasonFrom(response));
 
   inventory = await response.json();
   renderToolbar();
@@ -337,8 +351,6 @@ function renderStage() {
  */
 function showBoard(slug, url) {
   const frame = frameFor(slug, url);
-  frames.delete(slug);
-  frames.set(slug, frame);
 
   if (frame.dataset.loaded === "yes") reveal(slug);
 }
@@ -539,6 +551,7 @@ async function switchTo(slug, options = {}) {
 
   activeSlug = slug;
   activation = null;
+  activationEpoch += 1;
   overflow.removeAttribute("open");
   clearTimeout(pollTimer);
   renderToolbar();
@@ -548,33 +561,37 @@ async function switchTo(slug, options = {}) {
   if (options.replace) history.replaceState({ slug }, "", url);
   else history.pushState({ slug }, "", url);
 
-  await settle(slug, `/api/projects/${encodeURIComponent(slug)}/activate`, { method: "POST" });
+  await settle(slug, `${projectRoute(slug)}/activate`, activationEpoch, { method: "POST" });
 }
 
 /**
+ * The epoch retires the whole poll chain on a switch: a response landing after another
+ * `switchTo` must neither drive the stage nor re-arm a second chain beside the new one.
+ *
  * @param {string} slug
  * @param {string} path
+ * @param {number} epoch
  * @param {RequestInit} [init]
  */
-async function settle(slug, path, init) {
+async function settle(slug, path, epoch, init) {
   const response = await fetch(path, init).catch(() => null);
-  if (slug !== activeSlug) return;
+  if (epoch !== activationEpoch) return;
 
-  /** @type {Activation} */
-  const settled = response?.ok
-    ? await response.json()
-    : { status: "failed", error: `The hub could not start ${nameOf(slug)}.` };
+  /** @type {Activation | null} */
+  const answer = response?.ok ? await response.json().catch(() => null) : null;
+  const settled = answer ?? {
+    status: "failed",
+    error: `The hub could not start ${nameOf(slug)}.`,
+  };
 
   activation = settled;
   statuses.set(slug, settled.status);
   patchDots();
+  dropStoppedFrames();
   renderStage();
 
   if (settled.status === "starting") {
-    pollTimer = setTimeout(
-      () => settle(slug, `/api/projects/${encodeURIComponent(slug)}`),
-      POLL_INTERVAL_MS,
-    );
+    pollTimer = setTimeout(() => settle(slug, projectRoute(slug), epoch), POLL_INTERVAL_MS);
   }
 }
 
@@ -611,11 +628,7 @@ async function load(path, init) {
 
 /** @param {number} [depth] */
 async function refresh(depth) {
-  await load("/api/refresh", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(depth === undefined ? {} : { depth }),
-  });
+  await load("/api/refresh", postJson(depth === undefined ? {} : { depth }));
 
   for (const slug of [...frames.keys()]) {
     if (!inventory.projects.some((project) => project.slug === slug)) dropFrame(slug);
@@ -674,17 +687,15 @@ async function reasonFrom(response) {
 
   const body = await response.json().catch(() => null);
 
-  return body?.error ?? "The folder chooser failed.";
+  return body?.error ?? `The hub answered ${response.status}.`;
 }
 
 /** @param {string} path */
 async function addFolder(path) {
-  const response = await fetch("/api/list/added", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ path, added: true }),
-  }).catch(() => null);
-  if (!response?.ok) return showNotice(`No backlog/config.yml in ${path}.`);
+  const response = await fetch("/api/list/added", postJson({ path, added: true })).catch(
+    () => null,
+  );
+  if (!response?.ok) return showNotice(await reasonFrom(response));
 
   inventory = await response.json();
   await loadStatuses();
