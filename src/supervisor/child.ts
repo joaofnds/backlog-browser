@@ -1,11 +1,10 @@
 export const LOOPBACK = "127.0.0.1";
-export const STDERR_TAIL_LINES = 25;
+export const STDERR_TAIL_CHUNKS = 25;
 export const KILL_GRACE_MS = 2_000;
 
 export type LaunchSpec = { cwd: string; port: number };
 
 export interface ChildProcess {
-  readonly pid: number;
   readonly exited: Promise<number>;
   stderrTail(): string;
   kill(): void;
@@ -29,7 +28,7 @@ export function backlogLauncher(binary: string): ChildLauncher {
 
 class BacklogChild implements ChildProcess {
   private readonly process: Bun.Subprocess<"ignore", "ignore", "pipe">;
-  private readonly lines: string[] = [];
+  private readonly chunks: string[] = [];
   private escalation: ReturnType<typeof setTimeout> | null = null;
 
   constructor(binary: string, spec: LaunchSpec) {
@@ -49,16 +48,12 @@ class BacklogChild implements ChildProcess {
     this.exited.then(() => this.cancelEscalation());
   }
 
-  get pid(): number {
-    return this.process.pid;
-  }
-
   get exited(): Promise<number> {
     return this.process.exited;
   }
 
   stderrTail(): string {
-    return this.lines.join("");
+    return this.chunks.join("");
   }
 
   kill(): void {
@@ -101,8 +96,8 @@ class BacklogChild implements ChildProcess {
       const { done, value } = await reader.read();
       if (done) return;
 
-      this.lines.push(decoder.decode(value, { stream: true }));
-      if (this.lines.length > STDERR_TAIL_LINES) this.lines.shift();
+      this.chunks.push(decoder.decode(value, { stream: true }));
+      if (this.chunks.length > STDERR_TAIL_CHUNKS) this.chunks.shift();
     }
   }
 }

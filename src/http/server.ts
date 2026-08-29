@@ -8,9 +8,8 @@ import shellCss from "../shell/shell.css" with { type: "text" };
 import shellJs from "../shell/shell.js" with { type: "text" };
 import { SETTING_BOUNDS, type SettingBounds, within } from "../state/settings.ts";
 import type { StateStore } from "../state/store.ts";
+import { LOOPBACK } from "../supervisor/child.ts";
 import type { Supervisor } from "../supervisor/supervisor.ts";
-
-export const LOOPBACK = "127.0.0.1";
 
 export function startHub(options: {
   registry: ProjectRegistry;

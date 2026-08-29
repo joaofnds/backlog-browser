@@ -195,26 +195,17 @@ export class Supervisor {
     if (outcome.kind === "timeout") {
       const seconds = Math.round(this.readyTimeoutMs / 1000);
 
-      return {
-        status: "failed",
-        error: `${name} did not answer on port ${entry.port} within ${seconds}s.`,
-        stderr: stderr === "" ? undefined : stderr,
-      };
+      return failed(`${name} did not answer on port ${entry.port} within ${seconds}s.`, stderr);
     }
 
     if (outcome.kind === "collision") {
-      return {
-        status: "failed",
-        error: `Could not find a free port for ${name} after ${MAX_PORT_ATTEMPTS} attempts.`,
-        stderr: stderr === "" ? undefined : stderr,
-      };
+      return failed(
+        `Could not find a free port for ${name} after ${MAX_PORT_ATTEMPTS} attempts.`,
+        stderr,
+      );
     }
 
-    return {
-      status: "failed",
-      error: `\`backlog browser\` for ${name} exited with code ${outcome.code}.`,
-      stderr: stderr === "" ? undefined : stderr,
-    };
+    return failed(`\`backlog browser\` for ${name} exited with code ${outcome.code}.`, stderr);
   }
 
   private watchForCollapse(entry: Entry, child: ChildProcess): void {
@@ -251,4 +242,8 @@ export class Supervisor {
     this.entries.delete(entry.project.slug);
     entry.child?.kill();
   }
+}
+
+function failed(error: string, stderr: string): Activation {
+  return { status: "failed", error, stderr: stderr === "" ? undefined : stderr };
 }

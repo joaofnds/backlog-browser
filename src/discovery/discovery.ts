@@ -3,8 +3,6 @@ import { basename, join, resolve } from "node:path";
 
 import { Project } from "./project.ts";
 
-export const DEFAULT_DEPTH = 5;
-
 const IGNORED_DIRECTORIES = new Set([
   "node_modules",
   ".git",
@@ -16,15 +14,6 @@ const IGNORED_DIRECTORIES = new Set([
 ]);
 
 export type ProjectFinder = (options: { root: string; depth: number }) => Promise<string[]>;
-
-export async function discoverProjects(options: {
-  root: string;
-  depth?: number;
-}): Promise<Project[]> {
-  return readProjects(
-    await findProjectPaths({ root: options.root, depth: options.depth ?? DEFAULT_DEPTH }),
-  );
-}
 
 export const findProjectPaths: ProjectFinder = async (options) => {
   const found: string[] = [];

@@ -3,7 +3,6 @@ import { FakePortSpace } from "./fake-port-space.ts";
 import type { PortAllocator } from "./supervisor.ts";
 
 export class FakeChild implements ChildProcess {
-  readonly pid = Math.floor(Math.random() * 100_000);
   readonly exited: Promise<number>;
   killed = false;
 

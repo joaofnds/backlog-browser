@@ -3,7 +3,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { discoverProjects } from "./discovery.ts";
+import { findProjectPaths, readProjects } from "./discovery.ts";
 
 let root: string;
 
@@ -29,11 +29,15 @@ function namesOf(projects: { name: string }[]) {
   return projects.map((project) => project.name);
 }
 
-describe("discoverProjects", () => {
+async function discover(depth = 5) {
+  return readProjects(await findProjectPaths({ root, depth }));
+}
+
+describe("project discovery", () => {
   test("finds a project directly under the root", async () => {
     const path = await makeProject("alpha");
 
-    const projects = await discoverProjects({ root });
+    const projects = await discover();
 
     expect(projects.map((project) => project.path)).toEqual([path]);
   });
@@ -41,7 +45,7 @@ describe("discoverProjects", () => {
   test("reads the project name from backlog/config.yml", async () => {
     await makeProject("alpha", 'project_name: "Alpha Board"\n');
 
-    const projects = await discoverProjects({ root });
+    const projects = await discover();
 
     expect(namesOf(projects)).toEqual(["Alpha Board"]);
   });
@@ -49,7 +53,7 @@ describe("discoverProjects", () => {
   test("finds the root itself when the root is a project", async () => {
     await makeProject(".", 'project_name: "Root Project"\n');
 
-    const projects = await discoverProjects({ root });
+    const projects = await discover();
 
     expect(namesOf(projects)).toEqual(["Root Project"]);
   });
@@ -58,7 +62,7 @@ describe("discoverProjects", () => {
     await makeProject("outer");
     await makeProject("outer/inner");
 
-    const projects = await discoverProjects({ root });
+    const projects = await discover();
 
     expect(projects.map((project) => project.path)).toEqual([join(root, "outer")]);
   });
@@ -68,7 +72,7 @@ describe("discoverProjects", () => {
     await makeProject("vendor/ghost");
     await makeProject("target/ghost");
 
-    const projects = await discoverProjects({ root });
+    const projects = await discover();
 
     expect(projects).toEqual([]);
   });
@@ -76,7 +80,7 @@ describe("discoverProjects", () => {
   test("skips dotted directories", async () => {
     await makeProject(".cache/ghost");
 
-    const projects = await discoverProjects({ root });
+    const projects = await discover();
 
     expect(projects).toEqual([]);
   });
@@ -86,7 +90,7 @@ describe("discoverProjects", () => {
     await makeProject("two", 'project_name: "Apple"\n');
     await makeProject("three", 'project_name: "cherry"\n');
 
-    const projects = await discoverProjects({ root });
+    const projects = await discover();
 
     expect(namesOf(projects)).toEqual(["Apple", "banana", "cherry"]);
   });
@@ -94,7 +98,7 @@ describe("discoverProjects", () => {
   test("returns nothing when the root holds no project", async () => {
     await makePlainDirectory("just/some/files");
 
-    const projects = await discoverProjects({ root });
+    const projects = await discover();
 
     expect(projects).toEqual([]);
   });
@@ -103,7 +107,7 @@ describe("discoverProjects", () => {
     test("finds a project at the depth limit", async () => {
       const path = await makeProject("a/b/c");
 
-      const projects = await discoverProjects({ root, depth: 3 });
+      const projects = await discover(3);
 
       expect(projects.map((project) => project.path)).toEqual([path]);
     });
@@ -111,7 +115,7 @@ describe("discoverProjects", () => {
     test("ignores a project below the depth limit", async () => {
       await makeProject("a/b/c/d");
 
-      const projects = await discoverProjects({ root, depth: 3 });
+      const projects = await discover(3);
 
       expect(projects).toEqual([]);
     });
@@ -121,7 +125,7 @@ describe("discoverProjects", () => {
     test("falls back to the directory name", async () => {
       await makeProject("fallback-dir", "default_status: Todo\n");
 
-      const projects = await discoverProjects({ root });
+      const projects = await discover();
 
       expect(namesOf(projects)).toEqual(["fallback-dir"]);
     });
@@ -131,7 +135,7 @@ describe("discoverProjects", () => {
     test("falls back to the directory name", async () => {
       await makeProject("broken-dir", "project_name: [unclosed\n\t\tbad: :\n");
 
-      const projects = await discoverProjects({ root });
+      const projects = await discover();
 
       expect(namesOf(projects)).toEqual(["broken-dir"]);
     });
