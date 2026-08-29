@@ -43,22 +43,24 @@ export class HubHarness {
     private readonly app: App,
     readonly backlog: FakeBacklog,
     readonly chooser: FakeChooser,
+    readonly clock: { now: number },
   ) {}
 
   /** Boots through `startApp`, the same composition root the CLI uses, with the Fakes as deps. */
   static async start(
-    options: { depth?: number; root?: string; rescan?: boolean } = {},
+    options: { depth?: number; root?: string; rescan?: boolean; idleTimeoutMs?: number } = {},
   ): Promise<HubHarness> {
     const root = options.root ?? (await mkdtemp(join(tmpdir(), "backlog-browser-")));
     const backlog = new FakeBacklog();
     const chooser = new FakeChooser();
+    const clock = { now: 0 };
 
     const app = await startApp(
       {
         root,
         port: 0,
         depth: options.depth ?? null,
-        idleTimeoutMs: 0,
+        idleTimeoutMs: options.idleTimeoutMs ?? 0,
         rescan: options.rescan ?? false,
       },
       {
@@ -70,10 +72,11 @@ export class HubHarness {
         cacheFile: join(root, ".state", "discovery.json"),
         readyTimeoutMs: 1_000,
         pollIntervalMs: 0,
+        now: () => clock.now,
       },
     );
 
-    return new HubHarness(root, app, backlog, chooser);
+    return new HubHarness(root, app, backlog, chooser, clock);
   }
 
   get store(): StateStore {
@@ -107,7 +110,9 @@ export class HubHarness {
    * child ports do not: a fresh `FakeBacklog` counts from the bottom again, which is what makes a
    * project landing on its old port evidence that the port was remembered rather than re-derived.
    */
-  async restart(options: { depth?: number; rescan?: boolean } = {}): Promise<HubHarness> {
+  async restart(
+    options: { depth?: number; rescan?: boolean; idleTimeoutMs?: number } = {},
+  ): Promise<HubHarness> {
     await this.app.stop();
 
     return HubHarness.start({ ...options, root: this.root });

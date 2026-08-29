@@ -1,8 +1,8 @@
 #!/usr/bin/env bun
 import { type App, startApp } from "./app.ts";
 import { nativeFolderChooser } from "./discovery/choose-folder.ts";
+import { stateFile } from "./json-store.ts";
 import { type HubOptions, parseOptions, USAGE, UsageError, wantsHelp } from "./options.ts";
-import { stateFile } from "./state/json-store.ts";
 import { StateStore } from "./state/store.ts";
 import { BacklogUnavailable, locateBacklog } from "./supervisor/backlog-cli.ts";
 import { allocatePort, backlogLauncher, probeBacklogConfig } from "./supervisor/child.ts";

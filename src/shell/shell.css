@@ -390,10 +390,6 @@ body {
   margin-top: var(--space-2);
 }
 
-.sheet-spacer {
-  flex: 1 1 auto;
-}
-
 .sheet-form .sheet-actions {
   justify-content: flex-end;
 }
@@ -428,10 +424,6 @@ body {
   margin: 0;
   color: var(--text-muted);
   font-size: var(--text-sm);
-}
-
-.field-error {
-  color: var(--status-failed);
 }
 
 .picker-input,

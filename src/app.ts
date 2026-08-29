@@ -45,7 +45,7 @@ export async function startApp(
 
   const remembered = await store.depth();
   const depth = options.depth ?? remembered ?? DEFAULTS.depth;
-  await store.rememberDepth(depth);
+  if (options.depth !== null) await store.rememberDepth(options.depth);
 
   const registry = new ProjectRegistry({ root: options.root, depth, file: deps.cacheFile });
   await (options.rescan ? registry.refresh() : registry.load());

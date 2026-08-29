@@ -1,5 +1,5 @@
 import { asRecord } from "../json.ts";
-import { readRoots, writeJson } from "../state/json-store.ts";
+import { readRoots, writeJson } from "../json-store.ts";
 import { findProjectPaths, readProjects } from "./discovery.ts";
 import { Project } from "./project.ts";
 
@@ -96,7 +96,8 @@ function asScan(value: unknown): CachedScan | null {
 
   const { depth, paths } = stored;
   if (typeof depth !== "number") return null;
-  if (!Array.isArray(paths) || paths.some((path) => typeof path !== "string")) return null;
+  if (!Array.isArray(paths)) return null;
+  if (!paths.every((path): path is string => typeof path === "string")) return null;
 
-  return { depth, paths: paths as string[] };
+  return { depth, paths };
 }

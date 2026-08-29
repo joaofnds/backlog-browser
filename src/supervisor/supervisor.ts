@@ -148,7 +148,10 @@ export class Supervisor {
 
   private async spawn(entry: Entry, options: { reuse: boolean }): Promise<void> {
     const port = await this.portFor({ path: entry.project.path, reuse: options.reuse });
-    if (this.stopped) return;
+    if (this.stopped) {
+      entry.child = null;
+      return;
+    }
 
     entry.port = port;
     entry.child = this.launch({ cwd: entry.project.path, port: entry.port });

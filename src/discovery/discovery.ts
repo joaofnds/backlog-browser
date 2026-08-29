@@ -1,6 +1,7 @@
 import { readdir } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 
+import { fieldOf } from "../json.ts";
 import { Project } from "./project.ts";
 
 const IGNORED_DIRECTORIES = new Set([
@@ -76,9 +77,7 @@ async function declaredName(config: Bun.BunFile): Promise<string | null> {
     return null;
   }
 
-  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return null;
-
-  const name = (parsed as Record<string, unknown>).project_name;
+  const name = fieldOf(parsed, "project_name");
 
   return typeof name === "string" && name.trim() !== "" ? name.trim() : null;
 }

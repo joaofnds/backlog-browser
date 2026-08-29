@@ -145,6 +145,25 @@ describe("hub server", () => {
     });
   });
 
+  describe("the idle sweep", () => {
+    test("spares only the child the shell reports on screen", async () => {
+      harness = await harness.restart({ idleTimeoutMs: 1_000 });
+      driver = harness.driver();
+      const alpha = await addAndDiscover("Alpha");
+      const beta = await addAndDiscover("Beta");
+      await driver.activate(alpha);
+      await readyUp(alpha);
+      await driver.activate(beta);
+      await readyUp(beta);
+
+      harness.clock.now += 1_001;
+      await driver.get(`/api/status?active=${alpha}`);
+      harness.supervisor.stopIdle();
+
+      expect(await driver.statuses()).toMatchObject({ [alpha]: "ready", [beta]: "idle" });
+    });
+  });
+
   describe("across hub runs", () => {
     test("gives a project back the port it had", async () => {
       await addProjects("Alpha", "Beta");

@@ -18,6 +18,7 @@ const browseButton = /** @type {HTMLButtonElement} */ (must("browse-button"));
 const contextMenu = must("context-menu");
 const notice = /** @type {HTMLDialogElement} */ (must("notice"));
 const noticeDetail = must("notice-detail");
+const noticeHeading = must("notice-heading");
 const orderMode = must("order-mode");
 const overflow = must("overflow");
 const overflowList = must("overflow-list");
@@ -81,23 +82,32 @@ function postJson(body) {
 }
 
 /**
+ * The caller must stop on `false`: a failed write already showed the notice, and acting as if
+ * it landed (dropping a frame, switching away) leaves the shell lying about the hub's state.
+ *
  * @param {string} route
  * @param {unknown} body
  */
 async function mutate(route, body) {
   const response = await fetch(route, postJson(body)).catch(() => null);
-  if (!response?.ok) return showNotice(await reasonFrom(response));
+  if (!response?.ok) {
+    showNotice("Could not update the project list", await reasonFrom(response));
+
+    return false;
+  }
 
   inventory = await response.json();
   renderToolbar();
   renderPicker();
+
+  return true;
 }
 
 /** @param {ProjectSummary} project */
 async function hideProject(project) {
-  await mutate("/api/list/hidden", { path: project.path, hidden: true });
+  const hidden = await mutate("/api/list/hidden", { path: project.path, hidden: true });
 
-  if (project.slug !== activeSlug) return;
+  if (!hidden || project.slug !== activeSlug) return;
 
   const next = visible()[0];
   if (next) switchTo(next.slug);
@@ -507,10 +517,14 @@ function restageIfChanged() {
   restage(activeSlug);
 }
 
-/** The `hidden` guard catches the tick already in flight when the tab went away. */
+/**
+ * The `hidden` guard catches the tick already in flight when the tab went away, and the clear
+ * keeps a tick resumed beside a fresh visibilitychange chain from forking the poll.
+ */
 function scheduleStatusPoll() {
   if (document.hidden) return;
 
+  clearTimeout(statusTimer);
   statusTimer = setTimeout(pollStatus, STATUS_POLL_MS);
 }
 
@@ -579,6 +593,8 @@ async function settle(slug, path, epoch, init) {
 
   /** @type {Activation | null} */
   const answer = response?.ok ? await response.json().catch(() => null) : null;
+  if (epoch !== activationEpoch) return;
+
   const settled = answer ?? {
     status: "failed",
     error: `The hub could not start ${nameOf(slug)}.`,
@@ -671,7 +687,9 @@ async function chooseFolder() {
   browseButton.disabled = true;
   try {
     const response = await fetch("/api/choose-folder", { method: "POST" }).catch(() => null);
-    if (!response?.ok) return showNotice(await reasonFrom(response));
+    if (!response?.ok) {
+      return showNotice("Could not open the folder chooser", await reasonFrom(response));
+    }
 
     /** @type {ChosenFolder} */
     const chosen = await response.json();
@@ -695,7 +713,9 @@ async function addFolder(path) {
   const response = await fetch("/api/list/added", postJson({ path, added: true })).catch(
     () => null,
   );
-  if (!response?.ok) return showNotice(await reasonFrom(response));
+  if (!response?.ok) {
+    return showNotice("Could not add that folder", await reasonFrom(response));
+  }
 
   inventory = await response.json();
   await loadStatuses();
@@ -708,7 +728,8 @@ async function addFolder(path) {
 
 /** @param {ProjectSummary} project */
 async function removeProject(project) {
-  await mutate("/api/list/added", { path: project.path, added: false });
+  const removed = await mutate("/api/list/added", { path: project.path, added: false });
+  if (!removed) return;
 
   dropFrame(project.slug);
   if (project.slug !== activeSlug) return;
@@ -719,8 +740,12 @@ async function removeProject(project) {
   renderStage();
 }
 
-/** @param {string} detail */
-function showNotice(detail) {
+/**
+ * @param {string} heading
+ * @param {string} detail
+ */
+function showNotice(heading, detail) {
+  noticeHeading.textContent = heading;
   noticeDetail.textContent = detail;
   notice.showModal();
 }

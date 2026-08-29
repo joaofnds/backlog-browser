@@ -1,6 +1,6 @@
 import { asRecord, fieldOf } from "../json.ts";
+import { readRoots, stateFile, writeJson } from "../json-store.ts";
 import { ProjectList } from "../list/list.ts";
-import { readRoots, stateFile, writeJson } from "./json-store.ts";
 import { SETTING_BOUNDS, within } from "./settings.ts";
 
 const LOWEST_PORT = 1;

@@ -77,7 +77,9 @@ class BacklogChild implements ChildProcess {
     try {
       process.kill(-this.process.pid, signal);
     } catch {
-      this.process.kill(signal);
+      try {
+        this.process.kill(signal);
+      } catch {}
     }
   }
 
