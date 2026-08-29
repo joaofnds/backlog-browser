@@ -2,17 +2,13 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { type App, startApp } from "../app.ts";
 import { DiscoveryCache } from "../discovery/cache.ts";
 import type { ChosenFolder } from "../discovery/choose-folder.ts";
 import type { Project } from "../discovery/project.ts";
-import { ProjectRegistry } from "../discovery/registry.ts";
-import { rememberedPorts } from "../state/remembered-ports.ts";
 import { StateStore } from "../state/store.ts";
 import { FakeBacklog } from "../supervisor/fake-backlog.ts";
-import { Supervisor } from "../supervisor/supervisor.ts";
-import { startHub } from "./server.ts";
-
-const HARNESS_DEPTH = 3;
+import type { Supervisor } from "../supervisor/supervisor.ts";
 
 /** Stands in for the host's chooser: the tests say what the user chose, no window involved. */
 export class FakeChooser {
@@ -45,60 +41,59 @@ export class FakeChooser {
 export class HubHarness {
   private constructor(
     readonly root: string,
-    private readonly registry: ProjectRegistry,
-    readonly store: StateStore,
+    private readonly app: App,
     readonly backlog: FakeBacklog,
     readonly chooser: FakeChooser,
-    readonly supervisor: Supervisor,
-    private readonly server: Bun.Server<undefined>,
   ) {}
 
-  /**
-   * Resolves depth the way `cli.ts` does, flag then remembered then default, so a `restart()` with
-   * no flag sees whatever the shell last chose.
-   */
-  static async start(options: { depth?: number; root?: string } = {}): Promise<HubHarness> {
+  /** Boots through `startApp`, the same composition root the CLI uses, with the Fakes as deps. */
+  static async start(
+    options: { depth?: number; root?: string; rescan?: boolean } = {},
+  ): Promise<HubHarness> {
     const root = options.root ?? (await mkdtemp(join(tmpdir(), "backlog-browser-")));
-    const store = new StateStore({ file: join(root, ".state", "state.json") });
-    const remembered = await store.settings(root);
-    const depth = options.depth ?? remembered.depth ?? HARNESS_DEPTH;
-    await store.updateSettings(root, (settings) => settings.withDepth(depth));
-
-    const cache = new DiscoveryCache({ file: join(root, ".state", "discovery.json") });
-    const registry = new ProjectRegistry({ root, depth, cache });
-    await registry.load();
-    await registry.adopt((await store.list(root)).added);
     const backlog = new FakeBacklog();
     const chooser = new FakeChooser();
-    const supervisor = new Supervisor({
-      launch: backlog.launch,
-      probe: backlog.probe,
-      portFor: rememberedPorts({ store, root, allocate: backlog.allocatePort }),
-      idleTimeoutMs: 0,
-      readyTimeoutMs: 1_000,
-      pollIntervalMs: 0,
-    });
 
-    return new HubHarness(
-      root,
-      registry,
-      store,
-      backlog,
-      chooser,
-      supervisor,
-      startHub({ registry, store, supervisor, chooseFolder: chooser.choose, port: 0 }),
+    const app = await startApp(
+      {
+        root,
+        port: 0,
+        depth: options.depth ?? null,
+        idleTimeoutMs: 0,
+        rescan: options.rescan ?? false,
+      },
+      {
+        launch: backlog.launch,
+        probe: backlog.probe,
+        allocate: backlog.allocatePort,
+        chooseFolder: chooser.choose,
+        store: new StateStore({ file: join(root, ".state", "state.json") }),
+        cache: new DiscoveryCache({ file: join(root, ".state", "discovery.json") }),
+        readyTimeoutMs: 1_000,
+        pollIntervalMs: 0,
+      },
     );
+
+    return new HubHarness(root, app, backlog, chooser);
+  }
+
+  get store(): StateStore {
+    return this.app.store;
+  }
+
+  get supervisor(): Supervisor {
+    return this.app.supervisor;
   }
 
   projectFor(slug: string): Project {
-    const project = this.registry.find(slug);
+    const project = this.app.registry.find(slug);
     if (!project) throw new Error(`no discovered project with slug ${slug}`);
 
     return project;
   }
 
   driver(): HubDriver {
-    return new HubDriver(this.server.url.origin);
+    return new HubDriver(this.app.server.url.origin);
   }
 
   async addProject(name: string, directory = name): Promise<string> {
@@ -113,16 +108,14 @@ export class HubHarness {
    * child ports do not: a fresh `FakeBacklog` counts from the bottom again, which is what makes a
    * project landing on its old port evidence that the port was remembered rather than re-derived.
    */
-  async restart(): Promise<HubHarness> {
-    await this.supervisor.shutdown();
-    await this.server.stop(true);
+  async restart(options: { depth?: number; rescan?: boolean } = {}): Promise<HubHarness> {
+    await this.app.stop();
 
-    return HubHarness.start({ root: this.root });
+    return HubHarness.start({ ...options, root: this.root });
   }
 
   async stop(): Promise<void> {
-    await this.supervisor.shutdown();
-    await this.server.stop(true);
+    await this.app.stop();
     await rm(this.root, { recursive: true, force: true });
   }
 }

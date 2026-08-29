@@ -1,7 +1,11 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { join } from "node:path";
 
+import { DEFAULTS } from "../options.ts";
 import { type HubDriver, HubHarness, type Inventory } from "./hub.harness.ts";
+
+const FOUR_LEVELS_DOWN = join("a", "b", "c", "d");
+const BELOW_DEFAULT_DEPTH = join("a", "b", "c", "d", "e", "f");
 
 let harness: HubHarness;
 let driver: HubDriver;
@@ -90,7 +94,7 @@ describe("hub server", () => {
     test("reports the searched root and depth", async () => {
       const inventory = await driver.projects();
 
-      expect(inventory).toMatchObject({ root: harness.root, depth: 3 });
+      expect(inventory).toMatchObject({ root: harness.root, depth: DEFAULTS.depth });
     });
 
     test("lists nothing when the root holds no project", async () => {
@@ -186,10 +190,16 @@ describe("hub server", () => {
       expect(inventory.projects.map((project) => project.name)).toEqual(["Latecomer"]);
     });
 
-    test("walks at the depth the request names", async () => {
-      await harness.addProject("Buried", join("a", "b", "c", "d"));
+    test("misses a project below the depth the request names", async () => {
+      await harness.addProject("Buried", FOUR_LEVELS_DOWN);
 
-      const inventory = await driver.refresh(5);
+      expect((await driver.refresh(3)).projects).toEqual([]);
+    });
+
+    test("finds it once the request names a depth that reaches it", async () => {
+      await harness.addProject("Buried", FOUR_LEVELS_DOWN);
+
+      const inventory = await driver.refresh(4);
 
       expect(inventory.projects.map((project) => project.name)).toEqual(["Buried"]);
     });
@@ -199,17 +209,16 @@ describe("hub server", () => {
     });
 
     test("keeps the startup depth when the request names none", async () => {
-      expect((await driver.refresh()).depth).toBe(3);
+      expect((await driver.refresh()).depth).toBe(DEFAULTS.depth);
     });
 
     test("walks at the remembered depth on the next hub run", async () => {
-      await harness.addProject("Buried", join("a", "b", "c", "d"));
-      await driver.refresh(5);
+      await driver.refresh(7);
 
       harness = await harness.restart();
       driver = harness.driver();
 
-      expect((await driver.projects()).projects.map((project) => project.name)).toEqual(["Buried"]);
+      expect((await driver.projects()).depth).toBe(7);
     });
 
     describe("when the depth is out of range", () => {
@@ -220,8 +229,39 @@ describe("hub server", () => {
       test("leaves the depth alone", async () => {
         await driver.refreshing(0);
 
-        expect((await driver.projects()).depth).toBe(3);
+        expect((await driver.projects()).depth).toBe(DEFAULTS.depth);
       });
+    });
+  });
+
+  describe("startup", () => {
+    test("prefers the depth flag over the remembered depth", async () => {
+      await driver.refresh(7);
+
+      harness = await harness.restart({ depth: 2 });
+      driver = harness.driver();
+
+      expect((await driver.projects()).depth).toBe(2);
+    });
+
+    test("serves the cached walk instead of walking again", async () => {
+      await harness.addProject("Latecomer");
+
+      harness = await harness.restart();
+      driver = harness.driver();
+
+      expect((await driver.projects()).projects).toEqual([]);
+    });
+
+    test("walks again when started with --rescan", async () => {
+      await harness.addProject("Latecomer");
+
+      harness = await harness.restart({ rescan: true });
+      driver = harness.driver();
+
+      expect((await driver.projects()).projects.map((project) => project.name)).toEqual([
+        "Latecomer",
+      ]);
     });
   });
 
@@ -269,7 +309,7 @@ describe("hub server", () => {
 
   describe("POST /api/list/added", () => {
     test("lists a project nested below the discovery depth", async () => {
-      const path = await harness.addProject("Buried", join("a", "b", "c", "d"));
+      const path = await harness.addProject("Buried", BELOW_DEFAULT_DEPTH);
 
       const inventory = (await (await driver.addPath(path)).json()) as Inventory;
 
@@ -277,7 +317,7 @@ describe("hub server", () => {
     });
 
     test("keeps it through a walk that would never find it", async () => {
-      const path = await harness.addProject("Buried", join("a", "b", "c", "d"));
+      const path = await harness.addProject("Buried", BELOW_DEFAULT_DEPTH);
       await driver.addPath(path);
 
       const inventory = await driver.refresh();
@@ -286,7 +326,7 @@ describe("hub server", () => {
     });
 
     test("keeps it for the next hub run", async () => {
-      const path = await harness.addProject("Buried", join("a", "b", "c", "d"));
+      const path = await harness.addProject("Buried", BELOW_DEFAULT_DEPTH);
       await driver.addPath(path);
 
       harness = await harness.restart();
@@ -305,7 +345,7 @@ describe("hub server", () => {
     });
 
     test("marks it as added so the shell can offer to remove it", async () => {
-      const path = await harness.addProject("Buried", join("a", "b", "c", "d"));
+      const path = await harness.addProject("Buried", BELOW_DEFAULT_DEPTH);
 
       const inventory = (await (await driver.addPath(path)).json()) as Inventory;
 
@@ -328,7 +368,7 @@ describe("hub server", () => {
     });
 
     test("drops it again on request", async () => {
-      const path = await harness.addProject("Buried", join("a", "b", "c", "d"));
+      const path = await harness.addProject("Buried", BELOW_DEFAULT_DEPTH);
       await driver.addPath(path);
 
       const inventory = (await (await driver.dropPath(path)).json()) as Inventory;

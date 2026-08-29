@@ -1,24 +1,13 @@
 #!/usr/bin/env bun
+import { type App, startApp } from "./app.ts";
 import { DiscoveryCache } from "./discovery/cache.ts";
 import { nativeFolderChooser } from "./discovery/choose-folder.ts";
-import { ProjectRegistry } from "./discovery/registry.ts";
-import { startHub } from "./http/server.ts";
-import {
-  DEFAULTS,
-  type HubOptions,
-  parseOptions,
-  USAGE,
-  UsageError,
-  wantsHelp,
-} from "./options.ts";
-import { rememberedPorts } from "./state/remembered-ports.ts";
+import { type HubOptions, parseOptions, USAGE, UsageError, wantsHelp } from "./options.ts";
 import { StateStore } from "./state/store.ts";
 import { BacklogUnavailable, locateBacklog } from "./supervisor/backlog-cli.ts";
-import { allocatePort, backlogLauncher, LOOPBACK, probeBacklogConfig } from "./supervisor/child.ts";
-import { Supervisor } from "./supervisor/supervisor.ts";
+import { allocatePort, backlogLauncher, probeBacklogConfig } from "./supervisor/child.ts";
 
 const READY_TIMEOUT_MS = 15_000;
-const IDLE_SWEEP_MS = 60_000;
 
 await main(Bun.argv.slice(2));
 
@@ -39,71 +28,40 @@ async function main(argv: string[]): Promise<void> {
     return die(error instanceof BacklogUnavailable ? error.message : String(error));
   }
 
-  const store = StateStore.default();
-  const remembered = await store.settings(options.root);
-  const depth = options.depth ?? remembered.depth ?? DEFAULTS.depth;
-  await store.updateSettings(options.root, (settings) => settings.withDepth(depth));
-
-  const registry = new ProjectRegistry({
-    root: options.root,
-    depth,
-    cache: DiscoveryCache.default(),
-  });
-  await (options.rescan ? registry.refresh() : registry.load());
-  await registry.adopt((await store.list(options.root)).added);
-
-  const supervisor = new Supervisor({
-    launch: backlogLauncher(backlog.binary),
-    probe: probeBacklogConfig,
-    portFor: rememberedPorts({ store, root: options.root, allocate: allocatePort }),
-    idleTimeoutMs: options.idleTimeoutMs,
-    readyTimeoutMs: READY_TIMEOUT_MS,
-  });
-
-  const server = listen({
-    registry,
-    store,
-    supervisor,
-    chooseFolder: nativeFolderChooser,
-    port: options.port,
-  });
-  if (server === null) return;
-
-  const sweep = setInterval(() => supervisor.stopIdle(), IDLE_SWEEP_MS);
-  sweep.unref?.();
-
-  installShutdown({
-    stop: async () => {
-      clearInterval(sweep);
-      await supervisor.shutdown();
-      await server.stop(true);
-    },
-    force: () => supervisor.terminate(),
-  });
-
-  announce(server.url.href, registry, options.root);
-  if (options.open) openBrowser(server.url.href);
-}
-
-function listen(deps: Parameters<typeof startHub>[0]): Bun.Server<undefined> | null {
+  let app: App;
   try {
-    return startHub(deps);
+    app = await startApp(options, {
+      launch: backlogLauncher(backlog.binary),
+      probe: probeBacklogConfig,
+      allocate: allocatePort,
+      chooseFolder: nativeFolderChooser,
+      store: StateStore.default(),
+      cache: DiscoveryCache.default(),
+      readyTimeoutMs: READY_TIMEOUT_MS,
+    });
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
-    die(
-      `Could not bind ${LOOPBACK}:${deps.port} (${reason}).\n` +
-        "Another process is already using it. Free the port, or pass --port <n>.",
-    );
 
-    return null;
+    return die(
+      `Could not start the hub (${reason}).\n` +
+        `If port ${options.port} is taken, free it or pass --port <n>.`,
+    );
   }
+
+  installShutdown({
+    stop: app.stop,
+    force: () => app.supervisor.terminate(),
+  });
+
+  announce(app, options.root);
+  if (options.open) openBrowser(app.server.url.href);
 }
 
-function announce(url: string, registry: ProjectRegistry, root: string): void {
-  const count = registry.all().length;
+function announce(app: App, root: string): void {
+  const count = app.registry.all().length;
   const noun = count === 1 ? "project" : "projects";
-  console.log(`backlog-browser → ${url}`);
-  console.log(`${count} ${noun} under ${root} (depth ${registry.depth})`);
+  console.log(`backlog-browser → ${app.server.url.href}`);
+  console.log(`${count} ${noun} under ${root} (depth ${app.registry.depth})`);
 }
 
 function installShutdown(handlers: { stop: () => Promise<void>; force: () => void }): void {
@@ -151,7 +109,7 @@ function openBrowser(url: string): void {
   }
 }
 
-function die(message: string): void {
+function die(message: string): never {
   console.error(message);
   process.exit(1);
 }
