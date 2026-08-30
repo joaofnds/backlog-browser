@@ -37,6 +37,8 @@ const switcher = /** @type {HTMLElement} */ (must("project-list").parentElement)
 
 const POLL_INTERVAL_MS = 400;
 const STATUS_POLL_MS = 2_000;
+/** Browsers throttle a hidden tab's timers to about a minute, so ask for well under the sweep. */
+const KEEP_WARM_MS = 30_000;
 
 /** @type {Inventory} */
 let inventory = { root: "", depth: 0, active: null, mode: "default", projects: [] };
@@ -518,14 +520,28 @@ function restageIfChanged() {
 }
 
 /**
- * The `hidden` guard catches the tick already in flight when the tab went away, and the clear
- * keeps a tick resumed beside a fresh visibilitychange chain from forking the poll.
+ * A hidden tab still holds a board on screen, and coming back to a stopped one is the whole
+ * complaint the idle sweep would otherwise cause. So hiding drops the rendering work and keeps
+ * the report that stays the sweep, at a period the browser's background throttle allows.
+ */
+async function keepWarm() {
+  if (activeSlug !== null) {
+    await fetch(`/api/status?active=${encodeURIComponent(activeSlug)}`).catch(() => {});
+  }
+
+  scheduleStatusPoll();
+}
+
+/**
+ * The clear keeps a tick resumed beside a fresh visibilitychange chain from forking the poll,
+ * and re-arming on the tab's own state is what hands the chain between the two tick kinds.
  */
 function scheduleStatusPoll() {
-  if (document.hidden) return;
-
   clearTimeout(statusTimer);
-  statusTimer = setTimeout(pollStatus, STATUS_POLL_MS);
+
+  statusTimer = document.hidden
+    ? setTimeout(keepWarm, KEEP_WARM_MS)
+    : setTimeout(pollStatus, STATUS_POLL_MS);
 }
 
 /**
@@ -908,7 +924,7 @@ projectList.addEventListener("drop", (event) => {
 });
 
 document.addEventListener("visibilitychange", () => {
-  if (document.hidden) clearTimeout(statusTimer);
+  if (document.hidden) scheduleStatusPoll();
   else pollStatus();
 });
 
