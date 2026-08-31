@@ -1,5 +1,5 @@
 import type { Project } from "../discovery/project.ts";
-import { asRecord } from "../json.ts";
+import type { StoredRoot } from "../state/stored.ts";
 
 export type OrderMode = "default" | "manual";
 
@@ -36,17 +36,13 @@ export class ProjectList {
 		});
 	}
 
-	public static from(value: unknown): ProjectList {
-		const stored = asRecord(value);
-		if (stored === null) {
-			return ProjectList.empty();
-		}
-
+	/** Built from what the state file recorded, which the schema has already made sense of. */
+	public static from(stored: StoredRoot): ProjectList {
 		return new ProjectList({
-			mode: stored.mode === "manual" ? "manual" : "default",
-			order: strings(stored.order),
-			hidden: strings(stored.hidden),
-			added: strings(stored.added),
+			mode: stored.mode,
+			order: stored.order,
+			hidden: stored.hidden,
+			added: stored.added,
 		});
 	}
 
@@ -180,8 +176,3 @@ export class ProjectList {
 	}
 }
 
-function strings(value: unknown): string[] {
-	return Array.isArray(value)
-		? value.filter((entry) => typeof entry === "string")
-		: [];
-}

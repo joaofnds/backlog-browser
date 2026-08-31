@@ -1,12 +1,19 @@
-import { asRecord } from "../json.ts";
+import { z } from "zod";
+
 import { readRoots, writeJson } from "../json-store.ts";
 import { findProjectPaths, readProjects } from "./discovery.ts";
 import { Project } from "./project.ts";
 
-interface CachedScan {
-	depth: number;
-	paths: string[];
-}
+/**
+ * What one walk left behind: the paths it found and the depth it reached. The depth is part of
+ * the record because a shallower walk's answer must not be served for a deeper request.
+ */
+const scanSchema = z.object({
+	depth: z.number().int(),
+	paths: z.array(z.string()),
+});
+
+type CachedScan = z.infer<typeof scanSchema>;
 
 export class ProjectRegistry {
 	public readonly root: string;
@@ -79,9 +86,9 @@ export class ProjectRegistry {
 
 	/** The cache is keyed by depth, so a shallower saved walk misses rather than serving less. */
 	private async cachedScan(): Promise<string[] | null> {
-		const roots = await readRoots(this.file);
-		const scan = asScan(roots[this.root]);
-		if (scan === null || scan.depth !== this.currentDepth) {
+		const roots = await readRoots(this.file, scanSchema);
+		const scan = roots[this.root];
+		if (scan === undefined || scan.depth !== this.currentDepth) {
 			return null;
 		}
 
@@ -89,7 +96,7 @@ export class ProjectRegistry {
 	}
 
 	private async save(): Promise<void> {
-		const roots = await readRoots(this.file);
+		const roots = await readRoots(this.file, scanSchema);
 
 		await writeJson(this.file, {
 			roots: {
@@ -103,22 +110,3 @@ export class ProjectRegistry {
 	}
 }
 
-function asScan(value: unknown): CachedScan | null {
-	const stored = asRecord(value);
-	if (stored === null) {
-		return null;
-	}
-
-	const { depth, paths } = stored;
-	if (typeof depth !== "number") {
-		return null;
-	}
-	if (!Array.isArray(paths)) {
-		return null;
-	}
-	if (!paths.every((path): path is string => typeof path === "string")) {
-		return null;
-	}
-
-	return { depth, paths };
-}

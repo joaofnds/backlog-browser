@@ -1,24 +1,23 @@
-import { resolve } from "node:path";
+import { z } from "zod";
 
 import type { FolderChooser } from "../discovery/choose-folder.ts";
 import { readProject } from "../discovery/discovery.ts";
 import type { ProjectRegistry } from "../discovery/registry.ts";
-import { asRecord } from "../json.ts";
 import type { ListedProject } from "../list/list.ts";
 import shellHtml from "../shell/index.html" with { type: "text" };
 import shellCss from "../shell/shell.css" with { type: "text" };
 import shellJs from "../shell/shell.js" with { type: "text" };
-import { SETTING_BOUNDS, within } from "../state/settings.ts";
+import { SETTING_BOUNDS } from "../state/settings.ts";
 import type { SettingBounds } from "../state/settings.ts";
 import type { StateStore } from "../state/store.ts";
 import { LOOPBACK } from "../supervisor/child.ts";
 import type { Supervisor } from "../supervisor/supervisor.ts";
-
-/*
- * `registry.find(slug)` is our own lookup by slug, not `Array#find`, so the callback rule below
- * matches on the method name alone and would have us pass a function where a string belongs.
- */
-/* oxlint-disable unicorn/no-array-callback-reference */
+import {
+	addedRequest,
+	hiddenRequest,
+	orderRequest,
+	refreshRequest,
+} from "./requests.ts";
 export function startHub(options: {
 	registry: ProjectRegistry;
 	store: StateStore;
@@ -68,19 +67,18 @@ export function startHub(options: {
 			},
 			"/api/refresh": {
 				POST: async (request) => {
-					const body = await bodyOf(request);
-					const depth = within(body.depth, SETTING_BOUNDS.depth);
-					if (body.depth !== undefined && depth === null) {
+					const asked = await parsed(request, refreshRequest);
+					if (asked === null) {
 						return json(
 							{ error: outOfRange("depth", SETTING_BOUNDS.depth) },
 							400,
 						);
 					}
 
-					if (depth !== null) {
-						await store.rememberDepth(depth);
+					if (asked.depth !== undefined) {
+						await store.rememberDepth(asked.depth);
 					}
-					await registry.refresh(depth ?? undefined);
+					await registry.refresh(asked.depth);
 
 					return json(await inventoryOf(registry, store));
 				},
@@ -100,19 +98,17 @@ export function startHub(options: {
 			},
 			"/api/list/added": {
 				POST: async (request) => {
-					const body = await bodyOf(request);
-					const path = pathAt(body, "path");
-					const added = booleanAt(body, "added");
-					if (path === null || added === null) {
+					const asked = await parsed(request, addedRequest);
+					if (asked === null) {
 						return json({ error: "path and added" }, 400);
 					}
 
-					if (added && (await readProject(path)) === null) {
+					if (asked.added && (await readProject(asked.path)) === null) {
 						return json({ error: "no backlog/config.yml in that folder" }, 400);
 					}
 
 					const list = await store.updateList((current) =>
-						added ? current.add(path) : current.drop(path),
+						asked.added ? current.add(asked.path) : current.drop(asked.path),
 					);
 					await registry.adopt(list.added);
 
@@ -121,15 +117,13 @@ export function startHub(options: {
 			},
 			"/api/list/hidden": {
 				POST: async (request) => {
-					const body = await bodyOf(request);
-					const path = pathAt(body, "path");
-					const hidden = booleanAt(body, "hidden");
-					if (path === null || hidden === null) {
+					const asked = await parsed(request, hiddenRequest);
+					if (asked === null) {
 						return json({ error: "path and hidden" }, 400);
 					}
 
 					await store.updateList((list) =>
-						hidden ? list.hide(path) : list.show(path),
+						asked.hidden ? list.hide(asked.path) : list.show(asked.path),
 					);
 
 					return json(await inventoryOf(registry, store));
@@ -137,15 +131,17 @@ export function startHub(options: {
 			},
 			"/api/list/order": {
 				POST: async (request) => {
-					const body = await bodyOf(request);
-					const path = pathAt(body, "path");
-					const before = anchorAt(body, "before");
-					if (path === null || before === undefined) {
+					const asked = await parsed(request, orderRequest);
+					if (asked === null) {
 						return json({ error: "path and before" }, 400);
 					}
 
 					await store.updateList((list) =>
-						list.move({ path, before, discovered: registry.all() }),
+						list.move({
+							path: asked.path,
+							before: asked.before,
+							discovered: registry.all(),
+						}),
 					);
 
 					return json(await inventoryOf(registry, store));
@@ -320,48 +316,18 @@ function describe(
 	};
 }
 
-async function bodyOf(request: Request): Promise<Record<string, unknown>> {
-	const body = await request.json().catch(() => null);
-
-	return asRecord(body) ?? {};
-}
-
-function stringAt(body: Record<string, unknown>, key: string): string | null {
-	const value = body[key];
-
-	return typeof value === "string" && value !== "" ? value : null;
-}
-
 /**
- * One directory is one project. A slug is derived from its path, so two spellings of the same
- * directory would list the same board twice and let a removal drop only one of them.
- *
- * Lexical only. Resolving links here would disagree with the walk, which does not resolve them,
- * and on macOS every path under `/tmp` and `/var` would stop matching its discovered form.
+ * The body a route accepts, or `null` when the request did not send one. Parsing here is what lets
+ * a handler work with a value its schema already vouched for, instead of re-checking each field.
  */
-function pathAt(body: Record<string, unknown>, key: string): string | null {
-	const value = stringAt(body, key);
+async function parsed<T>(
+	request: Bun.BunRequest,
+	schema: z.ZodType<T>,
+): Promise<T | null> {
+	const body: unknown = await request.json().catch(() => null);
+	const asked = schema.safeParse(body);
 
-	return value === null ? null : resolve(value);
-}
-
-function booleanAt(body: Record<string, unknown>, key: string): boolean | null {
-	const value = body[key];
-
-	return typeof value === "boolean" ? value : null;
-}
-
-/** `undefined` is the parse failure here, because `null` is the anchor meaning "the end". */
-function anchorAt(
-	body: Record<string, unknown>,
-	key: string,
-): string | null | undefined {
-	const value = body[key];
-	if (value === null) {
-		return null;
-	}
-
-	return typeof value === "string" && value !== "" ? value : undefined;
+	return asked.success ? asked.data : null;
 }
 
 /** A handler rather than a bare `Response`, so the guard sees every request for the shell too. */

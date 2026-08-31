@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import { Project } from "../discovery/project.ts";
+import { EMPTY_ROOT } from "../state/stored.ts";
 import { ProjectList } from "./list.ts";
 
 const alpha = new Project({ path: "/code/alpha", name: "Alpha" });
@@ -252,14 +253,16 @@ describe("ProjectList", () => {
 	});
 
 	describe("from", () => {
-		test("reads a stored list back", () => {
-			const stored = {
+		/** Tolerance for a garbled file belongs to the schema; see `stored.test.ts` for that. */
+		test("carries the recorded list across", () => {
+			const list = ProjectList.from({
+				...EMPTY_ROOT,
 				mode: "manual",
 				order: ["/code/beta"],
 				hidden: ["/code/alpha"],
-			};
+			});
 
-			expect(ProjectList.from(stored)).toEqual(
+			expect(list).toEqual(
 				new ProjectList({
 					mode: "manual",
 					order: ["/code/beta"],
@@ -269,25 +272,8 @@ describe("ProjectList", () => {
 			);
 		});
 
-		test("falls back to an empty list for anything unrecognisable", () => {
-			expect(ProjectList.from("pkgs-9407c907")).toEqual(ProjectList.empty());
-			expect(ProjectList.from(undefined)).toEqual(ProjectList.empty());
-			expect(ProjectList.from({ mode: "sideways" })).toEqual(
-				ProjectList.empty(),
-			);
-		});
-
-		test("keeps the entries that are strings and drops the rest", () => {
-			const stored = { mode: "manual", order: ["/code/beta", 7], hidden: null };
-
-			expect(ProjectList.from(stored)).toEqual(
-				new ProjectList({
-					mode: "manual",
-					order: ["/code/beta"],
-					hidden: [],
-					added: [],
-				}),
-			);
+		test("is an empty list when nothing was recorded", () => {
+			expect(ProjectList.from(EMPTY_ROOT)).toEqual(ProjectList.empty());
 		});
 	});
 });

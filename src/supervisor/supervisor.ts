@@ -127,7 +127,6 @@ export class Supervisor {
 
 		const cutoff = this.now() - this.idleTimeoutMs;
 		// Copied, not iterated live: `discard` deletes from the very map being walked.
-		// oxlint-disable-next-line unicorn/no-useless-spread
 		for (const entry of [...this.entries.values()]) {
 			if (entry.lastUsedAt <= cutoff) {
 				this.discard(entry);

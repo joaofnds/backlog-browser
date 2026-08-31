@@ -1,7 +1,8 @@
 import { readdir, realpath } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 
-import { fieldOf } from "../json.ts";
+import { z } from "zod";
+
 import { Project } from "./project.ts";
 
 const IGNORED_DIRECTORIES = new Set([
@@ -100,15 +101,26 @@ async function projectNameAt(directory: string): Promise<string | null> {
 	return (await declaredName(config)) ?? basename(directory);
 }
 
+/**
+ * Backlog.md owns this file and may put anything in it, so only the one field is claimed and a
+ * config that will not parse is read as unnamed. The caller falls back to the directory name.
+ */
+const configSchema = z.object({
+	project_name: z
+		.string()
+		.transform((name) => name.trim())
+		.refine((name) => name !== ""),
+});
+
 async function declaredName(config: Bun.BunFile): Promise<string | null> {
-	let parsed: unknown;
+	let document: unknown;
 	try {
-		parsed = Bun.YAML.parse(await config.text());
+		document = Bun.YAML.parse(await config.text());
 	} catch {
 		return null;
 	}
 
-	const name = fieldOf(parsed, "project_name");
+	const parsed = configSchema.safeParse(document);
 
-	return typeof name === "string" && name.trim() !== "" ? name.trim() : null;
+	return parsed.success ? parsed.data.project_name : null;
 }

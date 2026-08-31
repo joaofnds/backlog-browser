@@ -2,7 +2,11 @@ import { rename } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-import { asRecord } from "./json.ts";
+import { z } from "zod";
+
+const rootsEnvelope = z.object({
+	roots: z.record(z.string(), z.unknown()).catch({}),
+});
 
 export function stateFile(name: string): string {
 	const base = process.env.XDG_STATE_HOME ?? join(homedir(), ".local", "state");
@@ -10,18 +14,38 @@ export function stateFile(name: string): string {
 	return join(base, "backlog-browser", name);
 }
 
-/** Both state files hold one entry per root under a `roots` envelope; this reads it tolerantly. */
-export async function readRoots(
+/**
+ * Both state files hold one entry per root under a `roots` envelope, but each records a different
+ * body, so each names the schema its own roots are read against. The bytes are parsed here, once,
+ * and nothing downstream sees an unparsed value.
+ *
+ * A file that is missing, truncated or garbled reads as no roots recorded. A root whose body does
+ * not fit is dropped and the rest are kept: these files are written by older versions and edited
+ * by hand, and losing one remembered preference beats refusing to start.
+ */
+export async function readRoots<T>(
 	file: string,
-): Promise<Record<string, unknown>> {
-	let parsed: unknown;
+	root: z.ZodType<T>,
+): Promise<Record<string, T>> {
+	let document: unknown;
 	try {
-		parsed = await Bun.file(file).json();
+		document = await Bun.file(file).json();
 	} catch {
 		return {};
 	}
 
-	return asRecord(asRecord(parsed)?.roots) ?? {};
+	const envelope = rootsEnvelope.safeParse(document);
+	if (!envelope.success) {
+		return {};
+	}
+
+	return Object.fromEntries(
+		Object.entries(envelope.data.roots).flatMap(([name, body]) => {
+			const kept = root.safeParse(body);
+
+			return kept.success ? [[name, kept.data] as const] : [];
+		}),
+	);
 }
 
 /**

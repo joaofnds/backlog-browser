@@ -1,10 +1,6 @@
-import { asRecord, fieldOf } from "../json.ts";
 import { readRoots, stateFile, writeJson } from "../json-store.ts";
 import { ProjectList } from "../list/list.ts";
-import { SETTING_BOUNDS, within } from "./settings.ts";
-
-const LOWEST_PORT = 1;
-const HIGHEST_PORT = 65_535;
+import { EMPTY_ROOT, type StoredRoot, storedRootSchema } from "./stored.ts";
 
 interface RootState {
 	readonly active: string | null;
@@ -79,7 +75,7 @@ export class StateStore {
 	}
 
 	private async state(): Promise<RootState> {
-		const roots = await readRoots(this.file);
+		const roots = await readRoots(this.file, storedRootSchema);
 
 		return readRoot(roots[this.root]);
 	}
@@ -96,10 +92,8 @@ export class StateStore {
 	private update(
 		change: (current: RootState) => RootState,
 	): Promise<RootState> {
-		/* oxlint-disable promise/prefer-await-to-then, eslint/no-empty-function */
 		const done = this.writes.then(() => this.apply(change));
 		this.writes = done.catch(() => {});
-		/* oxlint-enable promise/prefer-await-to-then, eslint/no-empty-function */
 
 		return done;
 	}
@@ -107,7 +101,7 @@ export class StateStore {
 	private async apply(
 		change: (current: RootState) => RootState,
 	): Promise<RootState> {
-		const roots = await readRoots(this.file);
+		const roots = await readRoots(this.file, storedRootSchema);
 		const next = change(readRoot(roots[this.root]));
 
 		await writeJson(this.file, {
@@ -126,45 +120,13 @@ export class StateStore {
 	}
 }
 
-function readRoot(stored: unknown): RootState {
+function readRoot(stored: StoredRoot | undefined): RootState {
+	const recorded = stored ?? EMPTY_ROOT;
+
 	return {
-		active: activeOf(stored),
-		list: ProjectList.from(stored),
-		ports: portsOf(fieldOf(stored, "ports")),
-		depth: within(
-			fieldOf(fieldOf(stored, "settings"), "depth"),
-			SETTING_BOUNDS.depth,
-		),
+		active: recorded.active,
+		list: ProjectList.from(recorded),
+		ports: recorded.ports,
+		depth: recorded.settings.depth,
 	};
-}
-
-function activeOf(stored: unknown): string | null {
-	const active = fieldOf(stored, "active");
-
-	return typeof active === "string" && active !== "" ? active : null;
-}
-
-function portsOf(value: unknown): Record<string, number> {
-	const stored = asRecord(value);
-	if (stored === null) {
-		return {};
-	}
-
-	const ports: Record<string, number> = {};
-	for (const [path, port] of Object.entries(stored)) {
-		if (isPort(port)) {
-			ports[path] = port;
-		}
-	}
-
-	return ports;
-}
-
-function isPort(value: unknown): value is number {
-	return (
-		typeof value === "number" &&
-		Number.isInteger(value) &&
-		value >= LOWEST_PORT &&
-		value <= HIGHEST_PORT
-	);
 }
