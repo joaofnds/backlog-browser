@@ -14,7 +14,7 @@ and run it.
 
 You need [Bun](https://bun.sh) to run it, and [Backlog.md](https://backlog.md) on your `PATH` to
 have anything to serve: the hub spawns `backlog browser` per project and refuses to start without
-it. `mise install` in a clone gets you Bun; install Backlog.md its own way.
+it. `mise install` in a clone gets you both, at the versions `mise.toml` pins.
 
 `src/cli.ts` carries a `#!/usr/bin/env bun` shebang, so link it onto your `PATH` and it tracks the
 source with no rebuild:
@@ -160,13 +160,16 @@ The hub does not adopt a server left over from a previous run; it starts its own
 ## Development
 
 ```bash
-mise install      # bun and gitleaks, pinned in mise.toml
+mise install      # bun, backlog.md and gitleaks, pinned in mise.toml
 bun install
 bun test
-bun run check     # biome, both tsconfigs, tests
+bun run check     # oxfmt, oxlint, all three tsconfigs, tests
 bun run scan      # gitleaks over the working tree and every commit
 bun run build     # single binary into dist/
 ```
+
+Formatting is [oxfmt](https://oxc.rs) and linting is [oxlint](https://oxc.rs), with every rule
+category an error and a set of vendored rules under `tools/oxlint/` on top.
 
 The hub answers only requests carrying its own `Origin` and `Host`. It is a long-lived server on a
 known loopback port, so without those checks any page the user visited could drive it: change the
@@ -175,4 +178,6 @@ a browser, which is why loopback binding alone does not cover it.
 
 The shell is one HTML file, one CSS file and one JS file under `src/shell/`, served by the hub's
 own handler with no build step. `src/shell/tsconfig.json` type-checks the browser script against
-the DOM lib; the root `tsconfig.json` covers the server and excludes it.
+the DOM lib; the root `tsconfig.json` covers the server and excludes it, and `bin/tsconfig.json`
+covers the npm launcher. `src/shell/shell.js` is left out of the formatter, which splits its JSDoc
+type casts away from the expressions they annotate and silently drops the annotation.

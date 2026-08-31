@@ -50,5 +50,6 @@
     "tsconfig.json",
     "README.md",
     "LICENSE"
-  ]
+  ],
+  "packageManager": "bun@1.4.0"
 }
