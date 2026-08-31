@@ -1,2 +1,7 @@
 node_modules/
 dist/
+
+# This project's own board and agent notes. Ignored here rather than only in a
+# personal global ignore file, so a contributor's board never lands in the repo.
+backlog/
+.boris/

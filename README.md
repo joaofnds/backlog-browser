@@ -12,6 +12,10 @@ and run it.
 
 ## Install
 
+You need [Bun](https://bun.sh) to run it, and [Backlog.md](https://backlog.md) on your `PATH` to
+have anything to serve: the hub spawns `backlog browser` per project and refuses to start without
+it. `mise install` in a clone gets you Bun; install Backlog.md its own way.
+
 `src/cli.ts` carries a `#!/usr/bin/env bun` shebang, so link it onto your `PATH` and it tracks the
 source with no rebuild:
 
@@ -152,11 +156,18 @@ The hub does not adopt a server left over from a previous run; it starts its own
 ## Development
 
 ```bash
+mise install      # bun and gitleaks, pinned in mise.toml
 bun install
 bun test
 bun run check     # biome, both tsconfigs, tests
+bun run scan      # gitleaks over the working tree and every commit
 bun run build     # single binary into dist/
 ```
+
+The hub answers only requests carrying its own `Origin` and `Host`. It is a long-lived server on a
+known loopback port, so without those checks any page the user visited could drive it: change the
+stored list, spawn a child, or open the host's folder chooser. A rebound DNS name is same-origin to
+a browser, which is why loopback binding alone does not cover it.
 
 The shell is one HTML file, one CSS file and one JS file under `src/shell/`, served by the hub's
 own handler with no build step. `src/shell/tsconfig.json` type-checks the browser script against

@@ -1,7 +1,26 @@
 {
   "name": "backlog-browser",
   "version": "0.1.0",
+  "description": "One local URL for every Backlog.md project under a folder, with a toolbar to switch between them.",
+  "license": "MIT",
+  "author": "João Fernandes",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/joaofnds/backlog-browser.git"
+  },
+  "homepage": "https://github.com/joaofnds/backlog-browser#readme",
+  "bugs": "https://github.com/joaofnds/backlog-browser/issues",
+  "keywords": [
+    "backlog",
+    "backlog-md",
+    "kanban",
+    "cli",
+    "bun"
+  ],
   "type": "module",
+  "engines": {
+    "bun": ">=1.4.0"
+  },
   "bin": {
     "backlog-browser": "./src/cli.ts"
   },
@@ -10,6 +29,7 @@
     "test": "bun test",
     "typecheck": "tsc --noEmit && tsc --noEmit -p src/shell",
     "check": "biome check --write . && bun run typecheck && bun test",
+    "scan": "gitleaks dir --no-banner --redact . && gitleaks git --no-banner --redact .",
     "build": "bun build --compile --outfile dist/backlog-browser src/cli.ts"
   },
   "devDependencies": {
