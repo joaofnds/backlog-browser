@@ -1,4 +1,5 @@
 import { mkdtemp, rm } from "node:fs/promises";
+import { connect } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -202,6 +203,31 @@ export class HubDriver {
   /** A request reaching the hub under a rebound name rather than its own loopback host. */
   async getAs(host: string, path: string): Promise<Response> {
     return fetch(`${this.origin}${path}`, { headers: { host } });
+  }
+
+  /**
+   * A request naming no host at all, which `fetch` cannot express: it always sends one. Only a
+   * raw client can, so this speaks HTTP/1.0 down a socket and reads the status line back.
+   */
+  async hostless(path: string): Promise<Response> {
+    const url = new URL(this.origin);
+    const raw = await new Promise<string>((resolve, reject) => {
+      const socket = connect({ host: url.hostname, port: Number(url.port) }, () => {
+        socket.write(`GET ${path} HTTP/1.0\r\n\r\n`);
+      });
+      let answer = "";
+      socket.setEncoding("utf8");
+      socket.on("data", (chunk) => {
+        answer += chunk;
+      });
+      socket.on("end", () => resolve(answer));
+      socket.on("error", reject);
+    });
+
+    const [head, body = ""] = raw.split("\r\n\r\n");
+    const status = Number(head?.split(" ")[1] ?? 0);
+
+    return new Response(body, { status });
   }
 
   async hide(path: string): Promise<Inventory> {

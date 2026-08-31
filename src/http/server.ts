@@ -149,6 +149,10 @@ type Routes<T extends string> = Bun.Serve.Routes<undefined, T>;
  *
  * Both names for the loopback address are the hub's own, on its own port: the tool prints
  * `127.0.0.1` but `localhost` is what a user types, and refusing it would be a bug, not a defence.
+ *
+ * A request naming no host is refused rather than trusted. Every browser sends one, so nothing
+ * legitimate is lost, and treating "absent" as "mine" let an HTTP/1.0 client walk straight past
+ * the check. `Origin` stays optional: only a browser sets it, and curl is not the threat.
  */
 function guarded<T extends string>(urlOf: () => URL, routes: Routes<T>): Routes<T> {
   const check = (request: Request): Response | null => {
@@ -156,7 +160,7 @@ function guarded<T extends string>(urlOf: () => URL, routes: Routes<T>): Routes<
     const own = new Set([`${LOOPBACK}:${port}`, `localhost:${port}`]);
 
     const host = request.headers.get("host");
-    if (host !== null && !own.has(host)) return json({ error: "wrong host" }, 403);
+    if (host === null || !own.has(host)) return json({ error: "wrong host" }, 403);
 
     const origin = request.headers.get("origin");
     if (origin !== null) {

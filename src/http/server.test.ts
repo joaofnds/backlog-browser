@@ -685,6 +685,17 @@ describe("hub server", () => {
 
       expect(response.status).toBe(403);
     });
+
+    /**
+     * A raw client can leave the header out altogether, and treating "absent" as "mine" let one
+     * through: the answer names every project's path, and the same request opened the chooser.
+     */
+    test("refuses a request that names no host at all", async () => {
+      const response = await driver.hostless("/api/projects");
+
+      expect(response.status).toBe(403);
+      expect(await response.text()).not.toContain(harness.root);
+    });
   });
 
   /**
