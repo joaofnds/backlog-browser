@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "description": "One local URL for every Backlog.md project under a folder, with a toolbar to switch between them.",
   "license": "MIT",
-  "author": "Jo\u00e3o Fernandes",
+  "author": "João Fernandes",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/joaofnds/backlog-browser.git"
@@ -52,5 +52,8 @@
     "README.md",
     "LICENSE"
   ],
-  "packageManager": "bun@1.4.0"
+  "packageManager": "bun@1.4.0",
+  "dependencies": {
+    "zod": "^4.5.4"
+  }
 }

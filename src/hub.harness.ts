@@ -2,7 +2,8 @@ import { mkdtemp, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { type App, startApp } from "./app.ts";
+import { startApp } from "./app.ts";
+import type { App } from "./app.ts";
 import { FakeBacklog } from "./fake-backlog.ts";
 import { FakeChooser } from "./fake-chooser.ts";
 import { HubDriver } from "./hub.driver.ts";
