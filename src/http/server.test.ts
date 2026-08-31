@@ -686,6 +686,13 @@ describe("hub server", () => {
       expect(response.status).toBe(403);
     });
 
+    /** Host names are case-insensitive, so a client that keeps the case is still the hub's own. */
+    test("answers its own name whatever the case", async () => {
+      const response = await driver.getAs(`LOCALHOST:${new URL(driver.origin).port}`, "/");
+
+      expect(response.status).toBe(200);
+    });
+
     /**
      * A raw client can leave the header out altogether, and treating "absent" as "mine" let one
      * through: the answer names every project's path, and the same request opened the chooser.

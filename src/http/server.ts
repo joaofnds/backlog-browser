@@ -159,7 +159,7 @@ function guarded<T extends string>(urlOf: () => URL, routes: Routes<T>): Routes<
     const port = urlOf().port;
     const own = new Set([`${LOOPBACK}:${port}`, `localhost:${port}`]);
 
-    const host = request.headers.get("host");
+    const host = request.headers.get("host")?.toLowerCase() ?? null;
     if (host === null || !own.has(host)) return json({ error: "wrong host" }, 403);
 
     const origin = request.headers.get("origin");
@@ -202,7 +202,7 @@ function hostOf(origin: string): string | null {
   try {
     const url = new URL(origin);
 
-    return url.protocol === "http:" ? url.host : null;
+    return url.protocol === "http:" ? url.host.toLowerCase() : null;
   } catch {
     return null;
   }
@@ -264,6 +264,9 @@ function stringAt(body: Record<string, unknown>, key: string): string | null {
 /**
  * One directory is one project. A slug is derived from its path, so two spellings of the same
  * directory would list the same board twice and let a removal drop only one of them.
+ *
+ * Lexical only. Resolving links here would disagree with the walk, which does not resolve them,
+ * and on macOS every path under `/tmp` and `/var` would stop matching its discovered form.
  */
 function pathAt(body: Record<string, unknown>, key: string): string | null {
   const value = stringAt(body, key);
