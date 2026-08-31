@@ -2,7 +2,7 @@ import { resolve } from "node:path";
 
 import { z } from "zod";
 
-import { SETTING_BOUNDS } from "../state/settings.ts";
+import { SETTING_BOUNDS } from "./settings.ts";
 
 /**
  * Every request body the hub accepts, parsed once where it arrives. A route never sees a field it

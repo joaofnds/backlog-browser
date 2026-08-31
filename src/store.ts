@@ -1,5 +1,5 @@
-import { readRoots, stateFile, writeJson } from "../json-store.ts";
-import { ProjectList } from "../list/list.ts";
+import { readRoots, stateFile, writeJson } from "./json-store.ts";
+import { ProjectList } from "./list.ts";
 import { EMPTY_ROOT, storedRootSchema } from "./stored.ts";
 import type { StoredRoot } from "./stored.ts";
 

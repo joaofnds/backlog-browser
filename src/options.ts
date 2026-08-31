@@ -2,8 +2,8 @@ import { homedir } from "node:os";
 import { resolve } from "node:path";
 import { parseArgs } from "node:util";
 
-import { SETTING_BOUNDS } from "./state/settings.ts";
-import type { SettingBounds } from "./state/settings.ts";
+import { SETTING_BOUNDS } from "./settings.ts";
+import type { SettingBounds } from "./settings.ts";
 
 export const DEFAULTS = {
 	port: 6789,

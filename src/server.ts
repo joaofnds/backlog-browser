@@ -1,17 +1,17 @@
 import type { z } from "zod";
 
-import type { FolderChooser } from "../discovery/choose-folder.ts";
-import { readProject } from "../discovery/discovery.ts";
-import type { ProjectRegistry } from "../discovery/registry.ts";
-import type { ListedProject } from "../list/list.ts";
-import shellHtml from "../shell/index.html" with { type: "text" };
-import shellCss from "../shell/shell.css" with { type: "text" };
-import shellJs from "../shell/shell.js" with { type: "text" };
-import { SETTING_BOUNDS } from "../state/settings.ts";
-import type { SettingBounds } from "../state/settings.ts";
-import type { StateStore } from "../state/store.ts";
-import { LOOPBACK } from "../supervisor/child.ts";
-import type { Supervisor } from "../supervisor/supervisor.ts";
+import type { FolderChooser } from "./choose-folder.ts";
+import { readProject } from "./discovery.ts";
+import type { ProjectRegistry } from "./registry.ts";
+import type { ListedProject } from "./list.ts";
+import shellHtml from "./shell/index.html" with { type: "text" };
+import shellCss from "./shell/shell.css" with { type: "text" };
+import shellJs from "./shell/shell.js" with { type: "text" };
+import { SETTING_BOUNDS } from "./settings.ts";
+import type { SettingBounds } from "./settings.ts";
+import type { StateStore } from "./store.ts";
+import { LOOPBACK } from "./child.ts";
+import type { Supervisor } from "./supervisor.ts";
 import {
 	addedRequest,
 	hiddenRequest,

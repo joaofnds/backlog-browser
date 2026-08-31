@@ -2,8 +2,8 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { FakePortSpace } from "../supervisor/fake-port-space.ts";
-import type { PortAllocator } from "../supervisor/supervisor.ts";
+import { FakePortSpace } from "./fake-port-space.ts";
+import type { PortAllocator } from "./supervisor.ts";
 import { rememberedPorts } from "./remembered-ports.ts";
 import { StateStore } from "./store.ts";
 

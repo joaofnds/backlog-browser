@@ -1,20 +1,13 @@
 #!/usr/bin/env bun
 import { startApp } from "./app.ts";
 import type { App } from "./app.ts";
-import { nativeFolderChooser } from "./discovery/choose-folder.ts";
+import { nativeFolderChooser } from "./choose-folder.ts";
 import { stateFile } from "./json-store.ts";
 import { parseOptions, USAGE, UsageError, wantsHelp } from "./options.ts";
 import type { HubOptions } from "./options.ts";
-import { StateStore } from "./state/store.ts";
-import {
-	BacklogUnavailableError,
-	locateBacklog,
-} from "./supervisor/backlog-cli.ts";
-import {
-	allocatePort,
-	backlogLauncher,
-	probeBacklogConfig,
-} from "./supervisor/child.ts";
+import { StateStore } from "./store.ts";
+import { BacklogUnavailableError, locateBacklog } from "./backlog-cli.ts";
+import { allocatePort, backlogLauncher, probeBacklogConfig } from "./child.ts";
 
 const READY_TIMEOUT_MS = 15_000;
 

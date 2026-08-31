@@ -3,13 +3,13 @@ import { connect } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { startApp } from "../app.ts";
-import type { App } from "../app.ts";
-import type { ChosenFolder } from "../discovery/choose-folder.ts";
-import type { Project } from "../discovery/project.ts";
-import { StateStore } from "../state/store.ts";
-import { FakeBacklog } from "../supervisor/fake-backlog.ts";
-import type { Supervisor } from "../supervisor/supervisor.ts";
+import { startApp } from "./app.ts";
+import type { App } from "./app.ts";
+import type { ChosenFolder } from "./choose-folder.ts";
+import type { Project } from "./project.ts";
+import { StateStore } from "./store.ts";
+import { FakeBacklog } from "./fake-backlog.ts";
+import type { Supervisor } from "./supervisor.ts";
 
 /** Stands in for the host's chooser: the tests say what the user chose, no window involved. */
 export class FakeChooser {

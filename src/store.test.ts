@@ -3,7 +3,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { ProjectList } from "../list/list.ts";
+import { ProjectList } from "./list.ts";
 import { StateStore } from "./store.ts";
 
 const ROOT = "/code";

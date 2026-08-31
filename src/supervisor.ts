@@ -1,4 +1,4 @@
-import type { Project } from "../discovery/project.ts";
+import type { Project } from "./project.ts";
 import { isPortCollision, urlFor } from "./child.ts";
 import type { ChildLauncher, ChildProcess, ReadinessProbe } from "./child.ts";
 

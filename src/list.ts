@@ -1,5 +1,5 @@
-import type { Project } from "../discovery/project.ts";
-import type { StoredRoot } from "../state/stored.ts";
+import type { Project } from "./project.ts";
+import type { StoredRoot } from "./stored.ts";
 
 export type OrderMode = "default" | "manual";
 

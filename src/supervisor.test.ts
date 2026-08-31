@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 
-import { Project } from "../discovery/project.ts";
+import { Project } from "./project.ts";
 import { FakeBacklog } from "./fake-backlog.ts";
 import { MAX_PORT_ATTEMPTS, Supervisor } from "./supervisor.ts";
 import type { Activation } from "./supervisor.ts";

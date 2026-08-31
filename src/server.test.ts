@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { symlink } from "node:fs/promises";
 import { join } from "node:path";
 
-import { DEFAULTS } from "../options.ts";
+import { DEFAULTS } from "./options.ts";
 import { HubHarness } from "./hub.harness.ts";
 import type { HubDriver, Inventory } from "./hub.harness.ts";
 

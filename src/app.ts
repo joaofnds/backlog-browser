@@ -1,11 +1,11 @@
-import type { FolderChooser } from "./discovery/choose-folder.ts";
-import { ProjectRegistry } from "./discovery/registry.ts";
-import { startHub } from "./http/server.ts";
+import type { FolderChooser } from "./choose-folder.ts";
+import { ProjectRegistry } from "./registry.ts";
+import { startHub } from "./server.ts";
 import { DEFAULTS } from "./options.ts";
-import { rememberedPorts } from "./state/remembered-ports.ts";
-import type { StateStore } from "./state/store.ts";
-import type { ChildLauncher, ReadinessProbe } from "./supervisor/child.ts";
-import { Supervisor } from "./supervisor/supervisor.ts";
+import { rememberedPorts } from "./remembered-ports.ts";
+import type { StateStore } from "./store.ts";
+import type { ChildLauncher, ReadinessProbe } from "./child.ts";
+import { Supervisor } from "./supervisor.ts";
 
 const IDLE_SWEEP_MS = 60_000;
 

@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { readRoots, writeJson } from "../json-store.ts";
+import { readRoots, writeJson } from "./json-store.ts";
 import { findProjectPaths, readProjects } from "./discovery.ts";
 import { Project } from "./project.ts";
 

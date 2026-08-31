@@ -1,4 +1,4 @@
-import type { PortAllocator } from "../supervisor/supervisor.ts";
+import type { PortAllocator } from "./supervisor.ts";
 import type { StateStore } from "./store.ts";
 
 /**

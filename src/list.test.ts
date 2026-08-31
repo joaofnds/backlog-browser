@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
-import { Project } from "../discovery/project.ts";
-import { EMPTY_ROOT } from "../state/stored.ts";
+import { Project } from "./project.ts";
+import { EMPTY_ROOT } from "./stored.ts";
 import { ProjectList } from "./list.ts";
 
 const alpha = new Project({ path: "/code/alpha", name: "Alpha" });
