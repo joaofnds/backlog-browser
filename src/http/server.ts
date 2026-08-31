@@ -146,15 +146,23 @@ type Routes<T extends string> = Bun.Serve.Routes<undefined, T>;
  * `Host`, which pins the answer to the hub's own address. Binding to loopback does not settle
  * this: a name an attacker re-points at 127.0.0.1 is same-origin to the browser, and without this
  * check that page could read back the absolute path of every project on the machine.
+ *
+ * Both names for the loopback address are the hub's own, on its own port: the tool prints
+ * `127.0.0.1` but `localhost` is what a user types, and refusing it would be a bug, not a defence.
  */
 function guarded<T extends string>(urlOf: () => URL, routes: Routes<T>): Routes<T> {
   const check = (request: Request): Response | null => {
-    const expected = urlOf();
+    const port = urlOf().port;
+    const own = new Set([`${LOOPBACK}:${port}`, `localhost:${port}`]);
+
     const host = request.headers.get("host");
-    if (host !== null && host !== expected.host) return json({ error: "wrong host" }, 403);
+    if (host !== null && !own.has(host)) return json({ error: "wrong host" }, 403);
 
     const origin = request.headers.get("origin");
-    if (origin !== null && origin !== expected.origin) return json({ error: "wrong origin" }, 403);
+    if (origin !== null) {
+      const named = hostOf(origin);
+      if (named === null || !own.has(named)) return json({ error: "wrong origin" }, 403);
+    }
 
     return null;
   };
@@ -179,6 +187,21 @@ function guarded<T extends string>(urlOf: () => URL, routes: Routes<T>): Routes<
   return Object.fromEntries(
     Object.entries(routes).map(([path, route]) => [path, guard(route)]),
   ) as Routes<T>;
+}
+
+/**
+ * The `host:port` an origin names, or the header itself when it names none. `null` for the opaque
+ * origin a sandboxed frame sends, and the scheme is part of the answer: the hub speaks http, so an
+ * `https://localhost:<port>` origin is a different origin and must not match.
+ */
+function hostOf(origin: string): string | null {
+  try {
+    const url = new URL(origin);
+
+    return url.protocol === "http:" ? url.host : null;
+  } catch {
+    return null;
+  }
 }
 
 async function inventoryOf(registry: ProjectRegistry, store: StateStore) {

@@ -630,6 +630,23 @@ describe("hub server", () => {
 
       expect(response.status).toBe(403);
     });
+
+    test("but the shell opened at localhost is not another site", async () => {
+      const port = new URL(driver.origin).port;
+
+      const response = await driver.postFrom(`http://localhost:${port}`, "/api/refresh", {});
+
+      expect(response.status).toBe(200);
+    });
+
+    /** The hub speaks http, so the same name over https is somebody else. */
+    test("cannot borrow the hub's own name under another scheme", async () => {
+      const port = new URL(driver.origin).port;
+
+      const response = await driver.postFrom(`https://localhost:${port}`, "/api/refresh", {});
+
+      expect(response.status).toBe(403);
+    });
   });
 
   /**
@@ -655,6 +672,18 @@ describe("hub server", () => {
       const response = await driver.getAs(new URL(driver.origin).host, "/api/projects");
 
       expect(response.status).toBe(200);
+    });
+
+    test("still answers localhost, which is what a user types", async () => {
+      const response = await driver.getAs(`localhost:${new URL(driver.origin).port}`, "/");
+
+      expect(response.status).toBe(200);
+    });
+
+    test("refuses localhost on another port", async () => {
+      const response = await driver.getAs("localhost:1", "/api/projects");
+
+      expect(response.status).toBe(403);
     });
   });
 
