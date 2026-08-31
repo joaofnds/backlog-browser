@@ -190,6 +190,20 @@ export class HubDriver {
     });
   }
 
+  /** A request as another site's page would send it: the browser stamps its own origin on. */
+  async postFrom(origin: string, path: string, body: unknown): Promise<Response> {
+    return fetch(`${this.origin}${path}`, {
+      method: "POST",
+      headers: { "content-type": "application/json", origin },
+      body: JSON.stringify(body),
+    });
+  }
+
+  /** A request reaching the hub under a rebound name rather than its own loopback host. */
+  async getAs(host: string, path: string): Promise<Response> {
+    return fetch(`${this.origin}${path}`, { headers: { host } });
+  }
+
   async hide(path: string): Promise<Inventory> {
     return (
       await this.post("/api/list/hidden", { path, hidden: true })

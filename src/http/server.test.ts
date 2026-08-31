@@ -590,4 +590,99 @@ describe("hub server", () => {
       expect(response.status).toBe(404);
     });
   });
+
+  /**
+   * The hub is a long-lived server on a known loopback port, so any page the user visits can post
+   * to it. Only the shell it serves may drive it.
+   */
+  describe("a request from another site", () => {
+    const ELSEWHERE = "https://evil.example.com";
+
+    test("cannot change the project list", async () => {
+      const path = await addAndDiscover("Alpha").then(() => pathTo("Alpha"));
+
+      const response = await driver.postFrom(ELSEWHERE, "/api/list/hidden", { path, hidden: true });
+
+      expect(response.status).toBe(403);
+      expect(pathsOf(await driver.projects(), { hidden: true })).toEqual([]);
+    });
+
+    test("cannot open the host's folder chooser", async () => {
+      harness.chooser.chooses(join(harness.root, "anywhere"));
+
+      const response = await driver.postFrom(ELSEWHERE, "/api/choose-folder", {});
+
+      expect(response.status).toBe(403);
+      expect(harness.chooser.openedAt).toEqual([]);
+    });
+
+    test("cannot start a child", async () => {
+      const slug = await addAndDiscover("Alpha");
+
+      const response = await driver.postFrom(ELSEWHERE, `/api/projects/${slug}/activate`, {});
+
+      expect(response.status).toBe(403);
+      expect(harness.backlog.launches).toEqual([]);
+    });
+
+    test("cannot walk the tree again", async () => {
+      const response = await driver.postFrom(ELSEWHERE, "/api/refresh", { depth: 2 });
+
+      expect(response.status).toBe(403);
+    });
+  });
+
+  /**
+   * A name an attacker points back at 127.0.0.1 is same-origin to the browser, which would turn
+   * the block above into a channel they can also read the answers from.
+   */
+  describe("a request arriving under another name", () => {
+    test("is refused", async () => {
+      const response = await driver.getAs("attacker.example.com", "/api/projects");
+
+      expect(response.status).toBe(403);
+    });
+
+    test("is refused before it can report a project's path", async () => {
+      await addAndDiscover("Alpha");
+
+      const response = await driver.getAs("attacker.example.com", "/api/projects");
+
+      expect(await response.text()).not.toContain(harness.root);
+    });
+
+    test("still answers the hub's own host", async () => {
+      const response = await driver.getAs(new URL(driver.origin).host, "/api/projects");
+
+      expect(response.status).toBe(200);
+    });
+  });
+
+  /**
+   * Two spellings of one directory are one project: the slug is derived from the path, so an
+   * unresolved `..` would list the same board twice and remove only one of them.
+   */
+  describe("a path spelled with a traversal", () => {
+    test("adds the same project once", async () => {
+      const path = await harness.addProject("Outside", "outside");
+      const detour = `${harness.root}/elsewhere/../outside`;
+
+      await driver.addPath(path);
+      await driver.addPath(detour);
+
+      const listed = (await driver.projects()).projects.filter(
+        (project) => project.path === path || project.path === detour,
+      );
+      expect(listed).toHaveLength(1);
+    });
+
+    test("is removed by its plain spelling", async () => {
+      const path = await harness.addProject("Outside", "outside");
+      await driver.addPath(`${harness.root}/elsewhere/../outside`);
+
+      await driver.dropPath(path);
+
+      expect((await driver.projects()).projects.map((project) => project.path)).not.toContain(path);
+    });
+  });
 });
