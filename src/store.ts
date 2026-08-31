@@ -1,4 +1,5 @@
 import { readRoots, stateFile, writeJson } from "./json-store.ts";
+import { WriteQueue } from "./write-queue.ts";
 import { ProjectList } from "./list.ts";
 import { EMPTY_ROOT, storedRootSchema } from "./stored.ts";
 import type { StoredRoot } from "./stored.ts";
@@ -13,7 +14,7 @@ interface RootState {
 export class StateStore {
 	private readonly file: string;
 	private readonly root: string;
-	private writes: Promise<unknown> = Promise.resolve();
+	private readonly writes = new WriteQueue();
 
 	public constructor(props: { readonly file: string; readonly root: string }) {
 		this.file = props.file;
@@ -81,22 +82,11 @@ export class StateStore {
 		return readRoot(roots[this.root]);
 	}
 
-	/**
-	 * Every write is a read-modify-write of the whole file, so two of them in flight at once lose
-	 * one update. Activating a project, reordering the list and claiming a port are separate writers,
-	 * so queue them, and read the current state inside the queue rather than before joining it.
-	 *
-	 * Not `async`, and the `.then` is the reason: the queue tail has to be reassigned in the same
-	 * tick as the call. Awaiting first lets a second caller join the queue before the first has
-	 * extended it, and both then write from the same starting state. `store.test.ts` catches it.
-	 */
+	/** Queued, because a read-modify-write of the whole file loses an update when two overlap. */
 	private update(
 		change: (current: RootState) => RootState,
 	): Promise<RootState> {
-		const done = this.writes.then(() => this.apply(change));
-		this.writes = done.catch(() => {});
-
-		return done;
+		return this.writes.add(async () => this.apply(change));
 	}
 
 	private async apply(

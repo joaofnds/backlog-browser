@@ -54,9 +54,7 @@ class BacklogChild implements ChildProcess {
 			},
 		);
 
-		// A stderr stream that errors would otherwise reject with nobody listening, and an
-		// unhandled rejection takes the hub down with it. The tail is best-effort either way.
-		void this.collectStderr().catch(() => {});
+		void this.collectStderr();
 		void this.awaitExit();
 	}
 
@@ -116,20 +114,29 @@ class BacklogChild implements ChildProcess {
 		this.escalation = null;
 	}
 
+	/**
+	 * The tail is best-effort: a stream that errors ends the collecting rather than rejecting with
+	 * nobody listening, because an unhandled rejection would take the hub down over a child's
+	 * output. Whatever arrived before the error is still reported.
+	 */
 	private async collectStderr(): Promise<void> {
 		const reader = this.process.stderr.getReader();
 		const decoder = new TextDecoder();
 
-		while (true) {
-			const { done, value } = await reader.read();
-			if (done) {
-				return;
-			}
+		try {
+			while (true) {
+				const { done, value } = await reader.read();
+				if (done) {
+					return;
+				}
 
-			this.chunks.push(decoder.decode(value, { stream: true }));
-			if (this.chunks.length > STDERR_TAIL_CHUNKS) {
-				this.chunks.shift();
+				this.chunks.push(decoder.decode(value, { stream: true }));
+				if (this.chunks.length > STDERR_TAIL_CHUNKS) {
+					this.chunks.shift();
+				}
 			}
+		} catch {
+			return;
 		}
 	}
 }

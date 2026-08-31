@@ -1,5 +1,12 @@
 import { z } from "zod";
 
+/*
+ * `.catch` here is zod's, not a promise's: it is the value a field falls back to when the stored
+ * one does not fit. `prefault` is the nearest alternative and is not the same, it rejects a
+ * wrong-typed value rather than replacing it, which is the tolerance these files exist to provide.
+ */
+/* oxlint-disable promise/prefer-await-to-then */
+
 import { SETTING_BOUNDS } from "./settings.ts";
 
 const LOWEST_PORT = 1;
