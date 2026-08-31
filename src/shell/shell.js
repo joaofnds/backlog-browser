@@ -128,7 +128,7 @@ async function hideProject(project) {
 
   const next = visible()[0];
   if (next) {
-    switchTo(next.slug);
+    void switchTo(next.slug);
   }
 }
 
@@ -176,7 +176,9 @@ function projectButton(project) {
   button.dataset.path = project.path;
   button.setAttribute("aria-current", String(project.slug === activeSlug));
   button.append(statusDot(project), document.createTextNode(project.name));
-  button.addEventListener("click", () => switchTo(project.slug));
+  button.addEventListener("click", () => {
+    void switchTo(project.slug);
+  });
   button.addEventListener("contextmenu", (event) => {
     event.preventDefault();
     openContextMenu(project, event);
@@ -184,13 +186,13 @@ function projectButton(project) {
   button.addEventListener("keydown", (event) => {
     if (event.key === "h" || event.key === "H") {
       event.preventDefault();
-      hideProject(project);
+      void hideProject(project);
     } else if (event.altKey && event.key === "ArrowLeft") {
       event.preventDefault();
-      nudge(project, -1);
+      void nudge(project, -1);
     } else if (event.altKey && event.key === "ArrowRight") {
       event.preventDefault();
-      nudge(project, 1);
+      void nudge(project, 1);
     }
   });
   button.addEventListener("dragstart", (event) => {
@@ -339,9 +341,17 @@ function clearDropMarks() {
  * @param {MouseEvent} event
  */
 function openContextMenu(project, event) {
-  const items = [menuItem(`Hide ${project.name}`, () => hideProject(project))];
+  const items = [
+    menuItem(`Hide ${project.name}`, () => {
+      void hideProject(project);
+    }),
+  ];
   if (project.added) {
-    items.push(menuItem(`Remove ${project.name} from the list`, () => removeProject(project)));
+    items.push(
+      menuItem(`Remove ${project.name} from the list`, () => {
+        void removeProject(project);
+      }),
+    );
   }
   const [item] = items;
 
@@ -376,10 +386,12 @@ function closeContextMenu() {
 
 function renderStage() {
   if (inventory.projects.length === 0) {
-    return showEmptyRoot();
+    showEmptyRoot();
+    return;
   }
   if (activation === null) {
-    return showMessage("Pick a project", "Choose a project from the toolbar above.");
+    showMessage("Pick a project", "Choose a project from the toolbar above.");
+    return;
   }
 
   if (
@@ -388,16 +400,19 @@ function renderStage() {
     activation.url !== "" &&
     activeSlug !== null
   ) {
-    return showBoard(activeSlug, activation.url);
+    showBoard(activeSlug, activation.url);
+    return;
   }
   if (activation.status === "failed") {
-    return showFailure(activation);
+    showFailure(activation);
+    return;
   }
   if (activation.status === "idle") {
-    return showDeadChild(`${nameOf(activeSlug)} stopped`, "The hub stopped it to free resources.");
+    showDeadChild(`${nameOf(activeSlug)} stopped`, "The hub stopped it to free resources.");
+    return;
   }
 
-  return showMessage("Starting…", `Waiting for ${nameOf(activeSlug)} to come up.`);
+  showMessage("Starting…", `Waiting for ${nameOf(activeSlug)} to come up.`);
 }
 
 /**
@@ -525,7 +540,9 @@ function showDeadChild(heading, detail, stderr) {
 
   const retry = element("button", "Retry");
   retry.className = "action";
-  retry.addEventListener("click", () => switchTo(activeSlug, { force: true }));
+  retry.addEventListener("click", () => {
+    void switchTo(activeSlug, { force: true });
+  });
 
   const children = [element("h1", heading), element("p", detail)];
   if (stderr !== undefined && stderr !== "") {
@@ -583,7 +600,7 @@ function restageIfChanged() {
     return;
   }
 
-  restage(activeSlug);
+  void restage(activeSlug);
 }
 
 /**
@@ -772,7 +789,7 @@ function cycle(step) {
   }
 
   const next = (slugs.indexOf(activeSlug ?? "") + step + slugs.length) % slugs.length;
-  switchTo(slugs[next] ?? null);
+  void switchTo(slugs[next] ?? null);
 }
 
 /* Settings ----------------------------------------------------------------- */
@@ -796,7 +813,8 @@ async function chooseFolder() {
   try {
     const response = await fetch("/api/choose-folder", { method: "POST" }).catch(() => null);
     if (response?.ok !== true) {
-      return showNotice("Could not open the folder chooser", await reasonFrom(response));
+      showNotice("Could not open the folder chooser", await reasonFrom(response));
+      return;
     }
 
     /** @type {ChosenFolder} */
@@ -826,7 +844,8 @@ async function addFolder(path) {
     () => null,
   );
   if (response?.ok !== true) {
-    return showNotice("Could not add that folder", await reasonFrom(response));
+    showNotice("Could not add that folder", await reasonFrom(response));
+    return;
   }
 
   inventory = await response.json();
@@ -836,7 +855,7 @@ async function addFolder(path) {
 
   const added = inventory.projects.find((project) => project.path === path);
   if (added) {
-    switchTo(added.slug);
+    void switchTo(added.slug);
   }
 }
 
@@ -922,7 +941,7 @@ function pickerRow(project, index) {
   option.append(element("span", project.name), path);
   option.addEventListener("click", () => {
     picker.close();
-    switchTo(project.slug);
+    void switchTo(project.slug);
   });
 
   const item = document.createElement("li");
@@ -942,7 +961,9 @@ function unhideButton(project) {
   unhide.className = "action";
   unhide.type = "button";
   unhide.textContent = "Unhide";
-  unhide.addEventListener("click", () => showProject(project));
+  unhide.addEventListener("click", () => {
+    void showProject(project);
+  });
 
   return unhide;
 }
@@ -977,18 +998,41 @@ function movePickerSelection(step) {
   highlightedOption()?.scrollIntoView({ block: "nearest" });
 }
 
+/**
+ * `history.state` is whatever a previous page in this tab pushed, so it is read as unknown and
+ * narrowed here rather than trusted to hold the `{ slug }` this shell writes.
+ *
+ * @param {unknown} state
+ * @returns {string | null}
+ */
+function slugFromHistory(state) {
+  if (state === null || typeof state !== "object" || !("slug" in state)) {
+    return null;
+  }
+
+  const { slug } = state;
+
+  return typeof slug === "string" && slug !== "" ? slug : null;
+}
+
 /* Wiring ------------------------------------------------------------------- */
 
 must("refresh-button").addEventListener("click", openRefreshDialog);
 must("picker-button").addEventListener("click", openPicker);
-browseButton.addEventListener("click", chooseFolder);
+browseButton.addEventListener("click", () => {
+  void chooseFolder();
+});
 
-must("refresh-form").addEventListener("submit", () => refresh(Number(refreshDepth.value)));
+must("refresh-form").addEventListener("submit", () => {
+  void refresh(Number(refreshDepth.value));
+});
 
 for (const button of document.querySelectorAll("[data-close]")) {
   button.addEventListener("click", () => button.closest("dialog")?.close());
 }
-must("reset-order").addEventListener("click", () => mutate("/api/list/reset", {}));
+must("reset-order").addEventListener("click", () => {
+  void mutate("/api/list/reset", {});
+});
 
 showHidden.addEventListener("change", () => {
   highlighted = 0;
@@ -1032,14 +1076,14 @@ projectList.addEventListener("drop", (event) => {
 
   event.preventDefault();
   const anchor = anchorAt(event.clientX);
-  mutate("/api/list/order", { path: dragging, before: anchor?.dataset.path ?? null });
+  void mutate("/api/list/order", { path: dragging, before: anchor?.dataset.path ?? null });
 });
 
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) {
     scheduleStatusPoll();
   } else {
-    pollStatus();
+    void pollStatus();
   }
 });
 
@@ -1077,9 +1121,9 @@ document.addEventListener("keydown", (event) => {
 });
 
 window.addEventListener("popstate", (event) => {
-  const slug = event.state?.slug ?? new URL(location.href).searchParams.get("project");
-  if (slug) {
-    switchTo(slug, { replace: true });
+  const slug = slugFromHistory(event.state) ?? new URL(location.href).searchParams.get("project");
+  if (slug !== null && slug !== "") {
+    void switchTo(slug, { replace: true });
   }
 });
 
