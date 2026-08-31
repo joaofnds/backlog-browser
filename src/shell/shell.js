@@ -7,6 +7,91 @@
  */
 
 /**
+ * The hub's replies, checked before they are believed. The shell has no build step and so no
+ * schema library, but an answer that is not the shape this file expects is a bug worth failing on
+ * here, where it can be named, rather than three renders later.
+ *
+ * @param {unknown} value
+ * @returns {Record<string, unknown>}
+ */
+function fields(value) {
+  if (typeof value !== "object" || value === null) {
+    throw new TypeError("the hub answered with something that is not an object");
+  }
+
+  return /** @type {Record<string, unknown>} */ (value);
+}
+
+/**
+ * @param {unknown} value
+ * @param {string} name
+ * @returns {string}
+ */
+function text(value, name) {
+  if (typeof value !== "string") {
+    throw new TypeError(`the hub's ${name} is not a string`);
+  }
+
+  return value;
+}
+
+/**
+ * @param {Response} response
+ * @returns {Promise<Inventory>}
+ */
+async function inventoryFrom(response) {
+  const body = fields(await response.json());
+  const { root, depth, active, mode, projects } = body;
+
+  return {
+    root: text(root, "root"),
+    depth: Number(depth),
+    active: active === null ? null : text(active, "active"),
+    mode: mode === "manual" ? "manual" : "default",
+    projects: Array.isArray(projects) ? projects.map((entry) => projectFrom(entry)) : [],
+  };
+}
+
+/**
+ * @param {unknown} value
+ * @returns {ProjectSummary}
+ */
+function projectFrom(value) {
+  const { slug, name, path, hidden, added } = fields(value);
+
+  return {
+    slug: text(slug, "slug"),
+    name: text(name, "name"),
+    path: text(path, "path"),
+    hidden: hidden === true,
+    added: added === true,
+  };
+}
+
+/**
+ * @param {Response} response
+ * @returns {Promise<Activation>}
+ */
+async function activationFrom(response) {
+  const body = fields(await response.json());
+  /** @type {Activation} */
+  const activation = { status: text(body.status, "status") };
+  const { url, error, stderr } = body;
+
+  if (typeof url === "string") {
+    activation.url = url;
+  }
+  if (typeof error === "string") {
+    activation.error = error;
+  }
+  if (typeof stderr === "string") {
+    activation.stderr = stderr;
+  }
+
+  return activation;
+}
+
+/**
  * The element the shell document promises under this id. It is a programming error for one to be
  * missing, so this throws rather than returning null and leaving every caller to check.
  *
@@ -111,7 +196,7 @@ async function mutate(route, body) {
     return false;
   }
 
-  inventory = await response.json();
+  inventory = await inventoryFrom(response);
   renderToolbar();
   renderPicker();
 
@@ -575,7 +660,11 @@ function nameOf(slug) {
 async function loadStatuses() {
   const route =
     activeSlug === null ? "/api/status" : `/api/status?active=${encodeURIComponent(activeSlug)}`;
-  statuses = new Map(Object.entries(await (await fetch(route)).json()));
+  const response = await fetch(route);
+  const reported = fields(await response.json());
+  statuses = new Map(
+    Object.entries(reported).map(([slug, status]) => [slug, text(status, "status")]),
+  );
 }
 
 /** Without the catch, one refused tick would end the chain: nothing re-arms after a rejection. */
@@ -706,8 +795,8 @@ async function settle(slug, path, epoch, init) {
     return;
   }
 
-  /** @type {Activation | null} */
-  const answer = response?.ok === true ? await response.json().catch(() => null) : null;
+  const answer =
+    response?.ok === true ? await activationFrom(response).catch(() => null) : null;
   if (epoch !== activationEpoch) {
     return;
   }
@@ -741,7 +830,7 @@ async function restage(slug) {
     return;
   }
 
-  activation = await response.json();
+  activation = await activationFrom(response);
   renderStage();
 }
 
@@ -757,7 +846,7 @@ async function load(path, init) {
     return;
   }
 
-  inventory = await response.json();
+  inventory = await inventoryFrom(response);
   await loadStatuses();
   renderToolbar();
   renderStage();
@@ -817,10 +906,9 @@ async function chooseFolder() {
       return;
     }
 
-    /** @type {ChosenFolder} */
-    const chosen = await response.json();
+    const chosen = fields(await response.json());
     if (chosen.kind === "chosen") {
-      await addFolder(chosen.path);
+      await addFolder(text(chosen.path, "path"));
     }
   } finally {
     browseButton.disabled = false;
@@ -833,9 +921,13 @@ async function reasonFrom(response) {
     return "The hub did not answer.";
   }
 
-  const body = await response.json().catch(() => null);
+  const body = await response
+    .json()
+    .then((value) => fields(value))
+    .catch(() => null);
+  const reason = body?.error;
 
-  return body?.error ?? `The hub answered ${response.status}.`;
+  return typeof reason === "string" ? reason : `The hub answered ${response.status}.`;
 }
 
 /** @param {string} path */
@@ -848,7 +940,7 @@ async function addFolder(path) {
     return;
   }
 
-  inventory = await response.json();
+  inventory = await inventoryFrom(response);
   await loadStatuses();
   renderToolbar();
   renderPicker();
