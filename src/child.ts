@@ -1,3 +1,5 @@
+import { childEnvironment } from "./environment.ts";
+
 export const LOOPBACK = "127.0.0.1";
 export const STDERR_TAIL_CHUNKS = 25;
 export const KILL_GRACE_MS = 2000;
@@ -42,7 +44,7 @@ class BacklogChild implements ChildProcess {
 			],
 			{
 				cwd: spec.cwd,
-				env: { ...process.env, BACKLOG_CWD: spec.cwd },
+				env: childEnvironment(spec.cwd),
 				stdin: "ignore",
 				stdout: "ignore",
 				stderr: "pipe",
@@ -131,7 +133,7 @@ class BacklogChild implements ChildProcess {
 				}
 			}
 		} catch {
-			return;
+			// The tail is what arrived before the stream broke.
 		}
 	}
 }

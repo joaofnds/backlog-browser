@@ -162,11 +162,13 @@ export function startHub(options: {
 	return server;
 }
 
-type Handler<P extends string> = (
-	request: Bun.BunRequest<P>,
+type Handler<Path extends string> = (
+	request: Bun.BunRequest<Path>,
 ) => Response | Promise<Response>;
-type RouteValue<P extends string> = Handler<P> | Record<string, Handler<P>>;
-type Routes<T extends string> = { [P in T]: RouteValue<P> };
+type RouteValue<Path extends string> =
+	| Handler<Path>
+	| Record<string, Handler<Path>>;
+type Routes<Paths extends string> = { [Path in Paths]: RouteValue<Path> };
 
 interface ProjectSummary {
 	slug: string;
@@ -202,10 +204,10 @@ interface Inventory {
  * legitimate is lost, and treating "absent" as "mine" let an HTTP/1.0 client walk straight past
  * the check. `Origin` stays optional: only a browser sets it, and curl is not the threat.
  */
-function guarded<T extends string>(
+function guarded<Paths extends string>(
 	urlOf: () => URL,
-	routes: Routes<T>,
-): Routes<T> {
+	routes: Routes<Paths>,
+): Routes<Paths> {
 	const check = (request: Request): Response | null => {
 		const { port } = urlOf();
 		const own = new Set([`${LOOPBACK}:${port}`, `localhost:${port}`]);
@@ -227,12 +229,14 @@ function guarded<T extends string>(
 	};
 
 	const wrap =
-		<P extends T>(handler: Handler<P>): Handler<P> =>
+		<Path extends Paths>(handler: Handler<Path>): Handler<Path> =>
 		(request) =>
 			check(request) ?? handler(request);
 
 	/** A route is either one handler or a handler per method; both are wrapped the same way. */
-	const guard = <P extends T>(route: RouteValue<P>): RouteValue<P> =>
+	const guard = <Path extends Paths>(
+		route: RouteValue<Path>,
+	): RouteValue<Path> =>
 		typeof route === "function"
 			? wrap(route)
 			: Object.fromEntries(
@@ -242,20 +246,20 @@ function guarded<T extends string>(
 					]),
 				);
 
-	const guarded: Routes<T> = { ...routes };
-	for (const path of keysOf(guarded)) {
-		guarded[path] = guard(guarded[path]);
+	const wrapped: Routes<Paths> = { ...routes };
+	for (const path of keysOf(wrapped)) {
+		wrapped[path] = guard(wrapped[path]);
 	}
 
-	return guarded;
+	return wrapped;
 }
 
 /**
  * The keys of an object whose key type is known. `Object.keys` widens them to `string`, which
  * would lose the path each route is declared under and with it the params it can name.
  */
-function keysOf<T extends string>(routes: Routes<T>): T[] {
-	const keys: T[] = [];
+function keysOf<Paths extends string>(routes: Routes<Paths>): Paths[] {
+	const keys: Paths[] = [];
 	for (const key in routes) {
 		if (Object.hasOwn(routes, key)) {
 			keys.push(key);
@@ -341,10 +345,10 @@ function describe(
  * The body a route accepts, or `null` when the request did not send one. Parsing here is what lets
  * a handler work with a value its schema already vouched for, instead of re-checking each field.
  */
-async function parsed<T>(
+async function parsed<Body>(
 	request: Bun.BunRequest,
-	schema: z.ZodType<T>,
-): Promise<T | null> {
+	schema: z.ZodType<Body>,
+): Promise<Body | null> {
 	const body: unknown = await request.json().catch(() => null);
 	const asked = schema.safeParse(body);
 

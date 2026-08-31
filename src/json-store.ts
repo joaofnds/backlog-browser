@@ -1,8 +1,9 @@
 import { rename } from "node:fs/promises";
-import { homedir } from "node:os";
 import { join } from "node:path";
 
 import { z } from "zod";
+
+import { stateHome } from "./environment.ts";
 
 /*
  * `.catch` here is zod's, not a promise's: it is the value a field falls back to when the stored
@@ -16,9 +17,7 @@ const rootsEnvelope = z.object({
 });
 
 export function stateFile(name: string): string {
-	const base = process.env.XDG_STATE_HOME ?? join(homedir(), ".local", "state");
-
-	return join(base, "backlog-browser", name);
+	return join(stateHome(), "backlog-browser", name);
 }
 
 /**

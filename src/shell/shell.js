@@ -105,7 +105,7 @@ function postJson(body) {
  */
 async function mutate(route, body) {
   const response = await fetch(route, postJson(body)).catch(() => null);
-  if (!response?.ok) {
+  if (response?.ok !== true) {
     showNotice("Could not update the project list", await reasonFrom(response));
 
     return false;
@@ -122,10 +122,14 @@ async function mutate(route, body) {
 async function hideProject(project) {
   const hidden = await mutate("/api/list/hidden", { path: project.path, hidden: true });
 
-  if (!hidden || project.slug !== activeSlug) return;
+  if (!hidden || project.slug !== activeSlug) {
+    return;
+  }
 
   const next = visible()[0];
-  if (next) switchTo(next.slug);
+  if (next) {
+    switchTo(next.slug);
+  }
 }
 
 /** @param {ProjectSummary} project */
@@ -141,7 +145,9 @@ async function nudge(project, step) {
   const order = visible();
   const from = order.findIndex((candidate) => candidate.path === project.path);
   const to = from + step;
-  if (from < 0 || to < 0 || to >= order.length) return;
+  if (from < 0 || to < 0 || to >= order.length) {
+    return;
+  }
 
   const anchor = step > 0 ? order[to + 1] : order[to];
   await mutate("/api/list/order", { path: project.path, before: anchor?.path ?? null });
@@ -152,7 +158,9 @@ async function nudge(project, step) {
 /** @param {string} slug */
 function focusPill(slug) {
   const pill = document.querySelector(`.project[data-slug="${CSS.escape(slug)}"]`);
-  if (pill instanceof HTMLElement) pill.focus();
+  if (pill instanceof HTMLElement) {
+    pill.focus();
+  }
 }
 
 /* Rendering ---------------------------------------------------------------- */
@@ -228,7 +236,9 @@ function labelled(text) {
  * a child is starting, and `replaceChildren` would destroy the pill the pointer is holding.
  */
 function renderToolbar() {
-  if (dragging !== null) return;
+  if (dragging !== null) {
+    return;
+  }
 
   projectList.replaceChildren(...visible().map(projectButton));
   collapseOverflow();
@@ -244,7 +254,9 @@ function collapseOverflow() {
     const spilled = [];
     while (!fitsOneRow() && projectList.children.length > 1) {
       const last = projectList.lastElementChild;
-      if (last === null) break;
+      if (last === null) {
+        break;
+      }
 
       last.remove();
       spilled.unshift(last);
@@ -252,7 +264,9 @@ function collapseOverflow() {
     overflowList.replaceChildren(...spilled);
 
     const active = overflowList.querySelector('[aria-current="true"]');
-    if (active !== null) overflowSummary.textContent = active.textContent;
+    if (active !== null) {
+      overflowSummary.textContent = active.textContent;
+    }
   }
 
   setDraggable(projectList, true);
@@ -268,7 +282,9 @@ function collapseOverflow() {
  */
 function setDraggable(list, draggable) {
   for (const pill of list.querySelectorAll(".project")) {
-    if (pill instanceof HTMLElement) pill.draggable = draggable;
+    if (pill instanceof HTMLElement) {
+      pill.draggable = draggable;
+    }
   }
 }
 
@@ -285,10 +301,14 @@ function fitsOneRow() {
  */
 function anchorAt(x) {
   for (const pill of projectList.querySelectorAll(".project")) {
-    if (!(pill instanceof HTMLElement) || pill.dataset.path === dragging) continue;
+    if (!(pill instanceof HTMLElement) || pill.dataset.path === dragging) {
+      continue;
+    }
 
     const box = pill.getBoundingClientRect();
-    if (x < box.left + box.width / 2) return pill;
+    if (x < box.left + box.width / 2) {
+      return pill;
+    }
   }
 
   return null;
@@ -299,12 +319,17 @@ function markDrop(x) {
   clearDropMarks();
   const anchor = anchorAt(x);
 
-  if (anchor !== null) anchor.parentElement?.classList.add("drop-before");
-  else projectList.lastElementChild?.classList.add("drop-after");
+  if (anchor !== null) {
+    anchor.parentElement?.classList.add("drop-before");
+  } else {
+    projectList.lastElementChild?.classList.add("drop-after");
+  }
 }
 
 function clearDropMarks() {
-  for (const item of projectList.children) item.classList.remove("drop-before", "drop-after");
+  for (const item of projectList.children) {
+    item.classList.remove("drop-before", "drop-after");
+  }
 }
 
 /* Context menu ------------------------------------------------------------- */
@@ -350,15 +375,24 @@ function closeContextMenu() {
 }
 
 function renderStage() {
-  if (inventory.projects.length === 0) return showEmptyRoot();
+  if (inventory.projects.length === 0) {
+    return showEmptyRoot();
+  }
   if (activation === null) {
     return showMessage("Pick a project", "Choose a project from the toolbar above.");
   }
 
-  if (activation.status === "ready" && activation.url && activeSlug !== null) {
+  if (
+    activation.status === "ready" &&
+    activation.url !== undefined &&
+    activation.url !== "" &&
+    activeSlug !== null
+  ) {
     return showBoard(activeSlug, activation.url);
   }
-  if (activation.status === "failed") return showFailure(activation);
+  if (activation.status === "failed") {
+    return showFailure(activation);
+  }
   if (activation.status === "idle") {
     return showDeadChild(`${nameOf(activeSlug)} stopped`, "The hub stopped it to free resources.");
   }
@@ -377,12 +411,16 @@ function renderStage() {
 function showBoard(slug, url) {
   const frame = frameFor(slug, url);
 
-  if (frame.dataset.loaded === "yes") reveal(slug);
+  if (frame.dataset.loaded === "yes") {
+    reveal(slug);
+  }
 }
 
 /** @param {string} slug */
 function reveal(slug) {
-  for (const [other, otherFrame] of frames) otherFrame.hidden = other !== slug;
+  for (const [other, otherFrame] of frames) {
+    otherFrame.hidden = other !== slug;
+  }
   placeholder.hidden = true;
 }
 
@@ -392,7 +430,9 @@ function reveal(slug) {
  */
 function frameFor(slug, url) {
   const existing = frames.get(slug);
-  if (existing && existing.src === url) return existing;
+  if (existing && existing.src === url) {
+    return existing;
+  }
 
   existing?.remove();
 
@@ -402,7 +442,9 @@ function frameFor(slug, url) {
   frame.hidden = true;
   frame.addEventListener("load", () => {
     frame.dataset.loaded = "yes";
-    if (activeSlug === slug) reveal(slug);
+    if (activeSlug === slug) {
+      reveal(slug);
+    }
   });
   frame.src = url;
   stage.append(frame);
@@ -417,12 +459,16 @@ function frameFor(slug, url) {
  */
 function dropStoppedFrames() {
   for (const slug of [...frames.keys()]) {
-    if (statuses.get(slug) !== "ready") dropFrame(slug);
+    if (statuses.get(slug) !== "ready") {
+      dropFrame(slug);
+    }
   }
 }
 
 function hideBoards() {
-  for (const frame of frames.values()) frame.hidden = true;
+  for (const frame of frames.values()) {
+    frame.hidden = true;
+  }
 }
 
 /** @param {string} slug */
@@ -472,7 +518,9 @@ function showFailure(failure) {
  */
 function showDeadChild(heading, detail, stderr) {
   hideBoards();
-  if (activeSlug !== null) dropFrame(activeSlug);
+  if (activeSlug !== null) {
+    dropFrame(activeSlug);
+  }
   placeholder.hidden = false;
 
   const retry = element("button", "Retry");
@@ -480,7 +528,9 @@ function showDeadChild(heading, detail, stderr) {
   retry.addEventListener("click", () => switchTo(activeSlug, { force: true }));
 
   const children = [element("h1", heading), element("p", detail)];
-  if (stderr) children.push(element("pre", stderr));
+  if (stderr !== undefined && stderr !== "") {
+    children.push(element("pre", stderr));
+  }
   children.push(retry);
 
   placeholder.replaceChildren(...children);
@@ -526,8 +576,12 @@ async function pollStatus() {
  * then: a tick would paint a dead-child screen over a project that is still booting.
  */
 function restageIfChanged() {
-  if (activeSlug === null || activation === null) return;
-  if (statuses.get(activeSlug) === activation.status) return;
+  if (activeSlug === null || activation === null) {
+    return;
+  }
+  if (statuses.get(activeSlug) === activation.status) {
+    return;
+  }
 
   restage(activeSlug);
 }
@@ -564,7 +618,9 @@ function scheduleStatusPoll() {
  */
 function patchDots() {
   for (const pill of document.querySelectorAll(".project")) {
-    if (!(pill instanceof HTMLElement) || pill.dataset.slug === undefined) continue;
+    if (!(pill instanceof HTMLElement) || pill.dataset.slug === undefined) {
+      continue;
+    }
 
     patchDot(pill.querySelector(".status"), statuses.get(pill.dataset.slug) ?? "idle");
   }
@@ -575,11 +631,15 @@ function patchDots() {
  * @param {string} status
  */
 function patchDot(dot, status) {
-  if (!(dot instanceof HTMLElement) || dot.dataset.status === status) return;
+  if (!(dot instanceof HTMLElement) || dot.dataset.status === status) {
+    return;
+  }
 
   dot.dataset.status = status;
   const label = dot.querySelector(".visually-hidden");
-  if (label !== null) label.textContent = status;
+  if (label !== null) {
+    label.textContent = status;
+  }
 }
 
 /* Activation --------------------------------------------------------------- */
@@ -589,8 +649,12 @@ function patchDot(dot, status) {
  * @param {{ force?: boolean, replace?: boolean }} [options]
  */
 async function switchTo(slug, options = {}) {
-  if (slug === null) return;
-  if (slug === activeSlug && !options.force) return;
+  if (slug === null) {
+    return;
+  }
+  if (slug === activeSlug && options.force !== true) {
+    return;
+  }
 
   activeSlug = slug;
   activation = null;
@@ -601,8 +665,11 @@ async function switchTo(slug, options = {}) {
   renderStage();
 
   const url = `/?project=${encodeURIComponent(slug)}`;
-  if (options.replace) history.replaceState({ slug }, "", url);
-  else history.pushState({ slug }, "", url);
+  if (options.replace === true) {
+    history.replaceState({ slug }, "", url);
+  } else {
+    history.pushState({ slug }, "", url);
+  }
 
   await settle(slug, `${projectRoute(slug)}/activate`, activationEpoch, { method: "POST" });
 }
@@ -618,11 +685,15 @@ async function switchTo(slug, options = {}) {
  */
 async function settle(slug, path, epoch, init) {
   const response = await fetch(path, init).catch(() => null);
-  if (epoch !== activationEpoch) return;
+  if (epoch !== activationEpoch) {
+    return;
+  }
 
   /** @type {Activation | null} */
-  const answer = response?.ok ? await response.json().catch(() => null) : null;
-  if (epoch !== activationEpoch) return;
+  const answer = response?.ok === true ? await response.json().catch(() => null) : null;
+  if (epoch !== activationEpoch) {
+    return;
+  }
 
   const settled = answer ?? {
     status: "failed",
@@ -649,7 +720,9 @@ async function settle(slug, path, epoch, init) {
  */
 async function restage(slug) {
   const response = await fetch(`/api/projects/${encodeURIComponent(slug)}`).catch(() => null);
-  if (!response?.ok || slug !== activeSlug) return;
+  if (response?.ok !== true || slug !== activeSlug) {
+    return;
+  }
 
   activation = await response.json();
   renderStage();
@@ -663,7 +736,9 @@ async function restage(slug) {
  */
 async function load(path, init) {
   const response = await fetch(path, init).catch(() => null);
-  if (!response?.ok) return;
+  if (response?.ok !== true) {
+    return;
+  }
 
   inventory = await response.json();
   await loadStatuses();
@@ -676,7 +751,9 @@ async function refresh(depth) {
   await load("/api/refresh", postJson(depth === undefined ? {} : { depth }));
 
   for (const slug of [...frames.keys()]) {
-    if (!inventory.projects.some((project) => project.slug === slug)) dropFrame(slug);
+    if (!inventory.projects.some((project) => project.slug === slug)) {
+      dropFrame(slug);
+    }
   }
 
   if (activeSlug !== null && !inventory.projects.some((it) => it.slug === activeSlug)) {
@@ -690,7 +767,9 @@ async function refresh(depth) {
 /** @param {number} step */
 function cycle(step) {
   const slugs = visible().map((project) => project.slug);
-  if (slugs.length === 0) return;
+  if (slugs.length === 0) {
+    return;
+  }
 
   const next = (slugs.indexOf(activeSlug ?? "") + step + slugs.length) % slugs.length;
   switchTo(slugs[next] ?? null);
@@ -716,13 +795,15 @@ async function chooseFolder() {
   browseButton.disabled = true;
   try {
     const response = await fetch("/api/choose-folder", { method: "POST" }).catch(() => null);
-    if (!response?.ok) {
+    if (response?.ok !== true) {
       return showNotice("Could not open the folder chooser", await reasonFrom(response));
     }
 
     /** @type {ChosenFolder} */
     const chosen = await response.json();
-    if (chosen.kind === "chosen") await addFolder(chosen.path);
+    if (chosen.kind === "chosen") {
+      await addFolder(chosen.path);
+    }
   } finally {
     browseButton.disabled = false;
   }
@@ -730,7 +811,9 @@ async function chooseFolder() {
 
 /** @param {Response | null} response */
 async function reasonFrom(response) {
-  if (response === null) return "The hub did not answer.";
+  if (response === null) {
+    return "The hub did not answer.";
+  }
 
   const body = await response.json().catch(() => null);
 
@@ -742,7 +825,7 @@ async function addFolder(path) {
   const response = await fetch("/api/list/added", postJson({ path, added: true })).catch(
     () => null,
   );
-  if (!response?.ok) {
+  if (response?.ok !== true) {
     return showNotice("Could not add that folder", await reasonFrom(response));
   }
 
@@ -752,16 +835,22 @@ async function addFolder(path) {
   renderPicker();
 
   const added = inventory.projects.find((project) => project.path === path);
-  if (added) switchTo(added.slug);
+  if (added) {
+    switchTo(added.slug);
+  }
 }
 
 /** @param {ProjectSummary} project */
 async function removeProject(project) {
   const removed = await mutate("/api/list/added", { path: project.path, added: false });
-  if (!removed) return;
+  if (!removed) {
+    return;
+  }
 
   dropFrame(project.slug);
-  if (project.slug !== activeSlug) return;
+  if (project.slug !== activeSlug) {
+    return;
+  }
 
   activeSlug = null;
   activation = null;
@@ -784,7 +873,9 @@ function showNotice(heading, detail) {
 /** @param {string} query */
 function matching(query) {
   const needle = query.trim().toLowerCase();
-  if (needle === "") return inventory.projects;
+  if (needle === "") {
+    return inventory.projects;
+  }
 
   return inventory.projects.filter((project) =>
     `${project.name} ${project.path}`.toLowerCase().includes(needle),
@@ -838,7 +929,9 @@ function pickerRow(project, index) {
   item.className = "picker-row";
   item.append(option);
 
-  if (project.hidden) item.append(unhideButton(project));
+  if (project.hidden) {
+    item.append(unhideButton(project));
+  }
 
   return item;
 }
@@ -875,7 +968,9 @@ function highlightedOption() {
 /** @param {number} step */
 function movePickerSelection(step) {
   const count = pickerOptions().length;
-  if (count === 0) return;
+  if (count === 0) {
+    return;
+  }
 
   highlighted = (highlighted + step + count) % count;
   renderPicker();
@@ -922,14 +1017,18 @@ pickerInput.addEventListener("keydown", (event) => {
 });
 
 projectList.addEventListener("dragover", (event) => {
-  if (dragging === null) return;
+  if (dragging === null) {
+    return;
+  }
 
   event.preventDefault();
   markDrop(event.clientX);
 });
 
 projectList.addEventListener("drop", (event) => {
-  if (dragging === null) return;
+  if (dragging === null) {
+    return;
+  }
 
   event.preventDefault();
   const anchor = anchorAt(event.clientX);
@@ -937,24 +1036,33 @@ projectList.addEventListener("drop", (event) => {
 });
 
 document.addEventListener("visibilitychange", () => {
-  if (document.hidden) scheduleStatusPoll();
-  else pollStatus();
+  if (document.hidden) {
+    scheduleStatusPoll();
+  } else {
+    pollStatus();
+  }
 });
 
 document.addEventListener("pointerdown", (event) => {
-  if (contextMenu.hidden) return;
-  if (event.target instanceof Node && contextMenu.contains(event.target)) return;
+  if (contextMenu.hidden === true) {
+    return;
+  }
+  if (event.target instanceof Node && contextMenu.contains(event.target)) {
+    return;
+  }
 
   closeContextMenu();
 });
 
 document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape" && !contextMenu.hidden) {
+  if (event.key === "Escape" && contextMenu.hidden === false) {
     closeContextMenu();
     return;
   }
 
-  if (!(event.metaKey || event.ctrlKey)) return;
+  if (!(event.metaKey || event.ctrlKey)) {
+    return;
+  }
 
   if (event.key === "k" || event.key === "K") {
     event.preventDefault();
@@ -970,7 +1078,9 @@ document.addEventListener("keydown", (event) => {
 
 window.addEventListener("popstate", (event) => {
   const slug = event.state?.slug ?? new URL(location.href).searchParams.get("project");
-  if (slug) switchTo(slug, { replace: true });
+  if (slug) {
+    switchTo(slug, { replace: true });
+  }
 });
 
 new ResizeObserver(collapseOverflow).observe(switcher);
@@ -982,7 +1092,9 @@ const remembered = inventory.projects.some((project) => project.slug === invento
   : null;
 const opening = new URL(location.href).searchParams.get("project") ?? remembered;
 
-if (opening !== null) await switchTo(opening, { replace: true });
+if (opening !== null) {
+  await switchTo(opening, { replace: true });
+}
 
 scheduleStatusPoll();
 
