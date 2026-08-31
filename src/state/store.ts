@@ -1,6 +1,7 @@
 import { readRoots, stateFile, writeJson } from "../json-store.ts";
 import { ProjectList } from "../list/list.ts";
-import { EMPTY_ROOT, type StoredRoot, storedRootSchema } from "./stored.ts";
+import { EMPTY_ROOT, storedRootSchema } from "./stored.ts";
+import type { StoredRoot } from "./stored.ts";
 
 interface RootState {
 	readonly active: string | null;

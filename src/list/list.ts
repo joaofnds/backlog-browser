@@ -175,4 +175,3 @@ export class ProjectList {
 			.map((project) => project.path);
 	}
 }
-

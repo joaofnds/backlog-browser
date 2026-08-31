@@ -1,7 +1,8 @@
 import { describe, expect, test } from "bun:test";
 
 import { SETTING_BOUNDS } from "./settings.ts";
-import { type StoredRoot, storedRootSchema } from "./stored.ts";
+import { storedRootSchema } from "./stored.ts";
+import type { StoredRoot } from "./stored.ts";
 
 /** What the schema makes of one root's body, or nothing when it will not have it. */
 function read(body: unknown): StoredRoot | undefined {

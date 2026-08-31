@@ -1,4 +1,4 @@
-import { z } from "zod";
+import type { z } from "zod";
 
 import type { FolderChooser } from "../discovery/choose-folder.ts";
 import { readProject } from "../discovery/discovery.ts";
@@ -18,6 +18,7 @@ import {
 	orderRequest,
 	refreshRequest,
 } from "./requests.ts";
+
 export function startHub(options: {
 	registry: ProjectRegistry;
 	store: StateStore;

@@ -71,8 +71,8 @@ describe("reading the roots of a state file", () => {
 	test("leaves no scratch file behind", async () => {
 		await write({ roots: {} });
 
-		expect(await Array.fromAsync(new Bun.Glob("*.tmp").scan(directory))).toEqual(
-			[],
-		);
+		expect(
+			await Array.fromAsync(new Bun.Glob("*.tmp").scan(directory)),
+		).toEqual([]);
 	});
 });
