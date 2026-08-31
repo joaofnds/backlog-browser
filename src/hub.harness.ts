@@ -79,7 +79,7 @@ export class HubHarness {
 	}
 
 	public projectFor(slug: string): Project {
-		const project = this.app.registry.find(slug);
+		const project = this.app.registry.bySlug(slug);
 		if (!project) {
 			throw new Error(`no discovered project with slug ${slug}`);
 		}

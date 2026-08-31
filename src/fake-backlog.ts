@@ -1,9 +1,4 @@
-import type {
-	ChildLauncher,
-	ChildProcess,
-	LaunchSpec,
-	ReadinessProbe,
-} from "./child.ts";
+import type { ChildLauncher, LaunchSpec, ReadinessProbe } from "./child.ts";
 import { FakeChild } from "./fake-child.ts";
 import { FakePortSpace } from "./fake-port-space.ts";
 import type { PortAllocator } from "./supervisor.ts";

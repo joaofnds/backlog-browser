@@ -38,7 +38,7 @@ describe("locateBacklog", () => {
 	});
 
 	describe("when backlog is not on PATH", () => {
-		test("rejects with the name it looked for", async () => {
+		test("rejects with the name it looked for", () => {
 			const attempt = locateBacklog({ run: runnerFor({}) });
 
 			expect(attempt).rejects.toBeInstanceOf(BacklogUnavailableError);
@@ -46,7 +46,7 @@ describe("locateBacklog", () => {
 	});
 
 	describe("when browser --help omits a required flag", () => {
-		test("rejects naming the missing flag", async () => {
+		test("rejects naming the missing flag", () => {
 			const run = runnerFor({
 				"backlog --version": { ok: true, stdout: "2.0.0\n" },
 				"backlog browser --help": {
@@ -58,7 +58,7 @@ describe("locateBacklog", () => {
 			expect(locateBacklog({ run })).rejects.toThrow(/--non-interactive/u);
 		});
 
-		test("rejects naming the version it found", async () => {
+		test("rejects naming the version it found", () => {
 			const run = runnerFor({
 				"backlog --version": { ok: true, stdout: "2.0.0\n" },
 				"backlog browser --help": {

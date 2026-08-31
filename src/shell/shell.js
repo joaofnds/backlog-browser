@@ -1,10 +1,23 @@
 /**
- * @typedef {{ slug: string, name: string, path: string, hidden: boolean, added: boolean }} ProjectSummary
+ * @typedef {Readonly<{ slug: string, name: string, path: string, hidden: boolean, added: boolean }>} ProjectSummary
  * @typedef {"default" | "manual"} OrderMode
- * @typedef {{ root: string, depth: number, active: string | null, mode: OrderMode, projects: ProjectSummary[] }} Inventory
- * @typedef {{ status: string, url?: string, error?: string, stderr?: string }} Activation
- * @typedef {{ kind: "chosen", path: string } | { kind: "cancelled" }} ChosenFolder
+ * @typedef {Readonly<{ root: string, depth: number, active: string | null, mode: OrderMode, projects: readonly ProjectSummary[] }>} Inventory
+ * @typedef {Readonly<{ status: string, url: string | null, error: string | null, stderr: string | null }>} Activation
+ * @typedef {Readonly<{ kind: "chosen", path: string } | { kind: "cancelled" }>} ChosenFolder
+ * @typedef {Readonly<{ method: "POST", headers?: Readonly<Record<string, string>>, body?: string }>} JsonPost
  */
+
+/**
+ * The brand `Object.prototype.toString` gives a value, which is the one classification the shell
+ * can make without a `typeof` on an unparsed reply. It is also stricter than `typeof` where it
+ * matters: an array and a `Date` are both `"object"` to `typeof`, and neither is a hub reply.
+ *
+ * @param {unknown} value
+ * @returns {string}
+ */
+function brandOf(value) {
+  return Object.prototype.toString.call(value);
+}
 
 /**
  * The hub's replies, checked before they are believed. The shell has no build step and so no
@@ -15,11 +28,19 @@
  * @returns {Record<string, unknown>}
  */
 function fields(value) {
-  if (typeof value !== "object" || value === null) {
+  if (value === null || brandOf(value) !== "[object Object]") {
     throw new TypeError("the hub answered with something that is not an object");
   }
 
-  return /** @type {Record<string, unknown>} */ (value);
+  return { ...value };
+}
+
+/**
+ * @param {unknown} value
+ * @returns {string | null}
+ */
+function stringOrNull(value) {
+  return brandOf(value) === "[object String]" ? String(value) : null;
 }
 
 /**
@@ -28,11 +49,12 @@ function fields(value) {
  * @returns {string}
  */
 function text(value, name) {
-  if (typeof value !== "string") {
+  const parsed = stringOrNull(value);
+  if (parsed === null) {
     throw new TypeError(`the hub's ${name} is not a string`);
   }
 
-  return value;
+  return parsed;
 }
 
 /**
@@ -74,64 +96,84 @@ function projectFrom(value) {
  */
 async function activationFrom(response) {
   const body = fields(await response.json());
-  /** @type {Activation} */
-  const activation = { status: text(body.status, "status") };
   const { url, error, stderr } = body;
 
-  if (typeof url === "string") {
-    activation.url = url;
-  }
-  if (typeof error === "string") {
-    activation.error = error;
-  }
-  if (typeof stderr === "string") {
-    activation.stderr = stderr;
-  }
-
-  return activation;
+  return {
+    status: text(body.status, "status"),
+    url: stringOrNull(url),
+    error: stringOrNull(error),
+    stderr: stringOrNull(stderr),
+  };
 }
 
 /**
- * The element the shell document promises under this id. It is a programming error for one to be
- * missing, so this throws rather than returning null and leaving every caller to check.
+ * The element the shell document promises under this id, as the kind the caller needs. It is a
+ * programming error for one to be missing or to be the wrong element, so this throws rather than
+ * returning null and leaving every caller to check. The `instanceof` is what earns the return
+ * type: no caller has to be trusted about what the document holds.
  *
  * @template {HTMLElement} T
  * @param {string} id
- * @param {new () => T} [type] the element the caller expects, when it needs more than HTMLElement
+ * @param {new () => T} type the element the caller expects
  * @returns {T}
  */
-function must(id, type) {
-  const node = document.getElementById(id);
+function mustBe(id, type) {
+  const node = document.querySelector(`#${CSS.escape(id)}`);
   if (node === null) {
     throw new Error(`the shell document is missing #${id}`);
   }
-  if (type !== undefined && !(node instanceof type)) {
+  if (!(node instanceof type)) {
     throw new Error(`#${id} is not a ${type.name}`);
   }
 
-  return /** @type {T} */ (node);
+  return node;
 }
 
-const browseButton = must("browse-button", HTMLButtonElement);
+/**
+ * @param {string} id
+ * @returns {HTMLElement}
+ */
+function must(id) {
+  return mustBe(id, HTMLElement);
+}
+
+/**
+ * The element a required one sits inside. The lookup stays here rather than taking the child as
+ * an argument so the enclosing element is found and checked in one place, the same way `mustBe`
+ * finds and checks the child.
+ *
+ * @param {string} id
+ * @returns {HTMLElement}
+ */
+function mustContain(id) {
+  const parent = document.querySelector(`#${CSS.escape(id)}`)?.parentElement ?? null;
+  if (!(parent instanceof HTMLElement)) {
+    throw new Error(`the shell document has no element around #${id}`);
+  }
+
+  return parent;
+}
+
+const browseButton = mustBe("browse-button", HTMLButtonElement);
 const contextMenu = must("context-menu");
-const notice = must("notice", HTMLDialogElement);
+const notice = mustBe("notice", HTMLDialogElement);
 const noticeDetail = must("notice-detail");
 const noticeHeading = must("notice-heading");
 const orderMode = must("order-mode");
 const overflow = must("overflow");
 const overflowList = must("overflow-list");
 const overflowSummary = must("overflow-summary");
-const picker = must("picker", HTMLDialogElement);
-const refreshDepth = must("refresh-depth", HTMLInputElement);
-const refreshDialog = must("refresh-dialog", HTMLDialogElement);
+const picker = mustBe("picker", HTMLDialogElement);
+const refreshDepth = mustBe("refresh-depth", HTMLInputElement);
+const refreshDialog = mustBe("refresh-dialog", HTMLDialogElement);
 const refreshNote = must("refresh-note");
-const pickerInput = must("picker-input", HTMLInputElement);
+const pickerInput = mustBe("picker-input", HTMLInputElement);
 const pickerList = must("picker-list");
 const placeholder = must("placeholder");
 const projectList = must("project-list");
-const showHidden = must("show-hidden", HTMLInputElement);
-const stage = /** @type {HTMLElement} */ (must("placeholder").parentElement);
-const switcher = /** @type {HTMLElement} */ (must("project-list").parentElement);
+const showHidden = mustBe("show-hidden", HTMLInputElement);
+const stage = mustContain("placeholder");
+const switcher = mustContain("project-list");
 
 const POLL_INTERVAL_MS = 400;
 const STATUS_POLL_MS = 2_000;
@@ -364,7 +406,7 @@ function collapseOverflow() {
  * A pill keeps its listeners as `collapseOverflow` moves the node between the two lists, so the
  * drag affordance has to be revoked on the way in and restored on the way out.
  *
- * @param {Element} list
+ * @param {Readonly<{ querySelectorAll: (selectors: string) => Iterable<Element> }>} list
  * @param {boolean} draggable
  */
 function setDraggable(list, draggable) {
@@ -423,9 +465,9 @@ function clearDropMarks() {
 
 /**
  * @param {ProjectSummary} project
- * @param {MouseEvent} event
+ * @param {Readonly<{ clientX: number, clientY: number }>} at where the pointer opened the menu
  */
-function openContextMenu(project, event) {
+function openContextMenu(project, at) {
   const items = [
     menuItem(`Hide ${project.name}`, () => {
       void hideProject(project);
@@ -442,8 +484,8 @@ function openContextMenu(project, event) {
 
   contextMenu.replaceChildren(...items);
   contextMenu.hidden = false;
-  contextMenu.style.left = `${event.clientX}px`;
-  contextMenu.style.top = `${event.clientY}px`;
+  contextMenu.style.left = `${at.clientX}px`;
+  contextMenu.style.top = `${at.clientY}px`;
   item?.focus();
 }
 
@@ -481,7 +523,7 @@ function renderStage() {
 
   if (
     activation.status === "ready" &&
-    activation.url !== undefined &&
+    activation.url !== null &&
     activation.url !== "" &&
     activeSlug !== null
   ) {
@@ -614,7 +656,7 @@ function showFailure(failure) {
  *
  * @param {string} heading
  * @param {string} detail
- * @param {string} [stderr]
+ * @param {string | null} [stderr]
  */
 function showDeadChild(heading, detail, stderr) {
   hideBoards();
@@ -630,7 +672,7 @@ function showDeadChild(heading, detail, stderr) {
   });
 
   const children = [element("h1", heading), element("p", detail)];
-  if (stderr !== undefined && stderr !== "") {
+  if (stderr !== undefined && stderr !== null && stderr !== "") {
     children.push(element("pre", stderr));
   }
   children.push(retry);
@@ -728,23 +770,17 @@ function patchDots() {
       continue;
     }
 
-    patchDot(pill.querySelector(".status"), statuses.get(pill.dataset.slug) ?? "idle");
-  }
-}
+    const status = statuses.get(pill.dataset.slug) ?? "idle";
+    const dot = pill.querySelector(".status");
+    if (!(dot instanceof HTMLElement) || dot.dataset.status === status) {
+      continue;
+    }
 
-/**
- * @param {Element | null} dot
- * @param {string} status
- */
-function patchDot(dot, status) {
-  if (!(dot instanceof HTMLElement) || dot.dataset.status === status) {
-    return;
-  }
-
-  dot.dataset.status = status;
-  const label = dot.querySelector(".visually-hidden");
-  if (label !== null) {
-    label.textContent = status;
+    dot.dataset.status = status;
+    const label = dot.querySelector(".visually-hidden");
+    if (label !== null) {
+      label.textContent = status;
+    }
   }
 }
 
@@ -752,7 +788,7 @@ function patchDot(dot, status) {
 
 /**
  * @param {string | null} slug
- * @param {{ force?: boolean, replace?: boolean }} [options]
+ * @param {Readonly<{ force?: boolean, replace?: boolean }>} [options]
  */
 async function switchTo(slug, options = {}) {
   if (slug === null) {
@@ -803,7 +839,9 @@ async function settle(slug, path, epoch, init) {
 
   const settled = answer ?? {
     status: "failed",
+    url: null,
     error: `The hub could not start ${nameOf(slug)}.`,
+    stderr: null,
   };
 
   activation = settled;

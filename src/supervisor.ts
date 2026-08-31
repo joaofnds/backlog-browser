@@ -115,11 +115,15 @@ export class Supervisor {
 		}
 
 		const cutoff = this.now() - this.idleTimeoutMs;
-		// Copied, not iterated live: `discard` deletes from the very map being walked.
-		for (const entry of [...this.entries.values()]) {
-			if (entry.idleSince(cutoff)) {
-				this.discard(entry);
-			}
+		// Chosen first, discarded second: discarding deletes from the map, so deciding and
+		// deleting in one pass would walk a collection while changing it.
+		const idle = this.entries
+			.values()
+			.filter((entry) => entry.idleSince(cutoff))
+			.toArray();
+
+		for (const entry of idle) {
+			this.discard(entry);
 		}
 	}
 

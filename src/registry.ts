@@ -82,7 +82,7 @@ export class ProjectRegistry {
 		].toSorted((left, right) => Project.byName(left, right));
 	}
 
-	public find(slug: string): Project | undefined {
+	public bySlug(slug: string): Project | undefined {
 		return this.all().find((project) => project.slug === slug);
 	}
 

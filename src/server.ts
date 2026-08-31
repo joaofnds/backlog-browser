@@ -37,7 +37,7 @@ export function startHub(options: {
 			"/shell.js": asset(shellJs, "text/javascript; charset=utf-8"),
 			"/api/projects": async () => json(await inventoryOf(registry, store)),
 			"/api/projects/:slug": (request) => {
-				const project = registry.find(request.params.slug);
+				const project = registry.bySlug(request.params.slug);
 				if (!project) {
 					return json({ error: "unknown project" }, 404);
 				}
@@ -46,7 +46,7 @@ export function startHub(options: {
 			},
 			"/api/projects/:slug/activate": {
 				POST: async (request) => {
-					const project = registry.find(request.params.slug);
+					const project = registry.bySlug(request.params.slug);
 					if (!project) {
 						return json({ error: "unknown project" }, 404);
 					}
@@ -59,7 +59,7 @@ export function startHub(options: {
 			},
 			"/api/status": (request) => {
 				const active = new URL(request.url).searchParams.get("active");
-				const viewed = active === null ? undefined : registry.find(active);
+				const viewed = active === null ? undefined : registry.bySlug(active);
 				if (viewed) {
 					supervisor.touch(viewed);
 				}
