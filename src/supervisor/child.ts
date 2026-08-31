@@ -54,7 +54,9 @@ class BacklogChild implements ChildProcess {
 			},
 		);
 
-		this.collectStderr();
+		// A stderr stream that errors would otherwise reject with nobody listening, and an
+		// unhandled rejection takes the hub down with it. The tail is best-effort either way.
+		void this.collectStderr().catch(() => {});
 		void this.awaitExit();
 	}
 
