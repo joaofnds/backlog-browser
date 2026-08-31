@@ -1,0 +1,121 @@
+{
+	"$schema": "./node_modules/oxlint/configuration_schema.json",
+	"plugins": [
+		"typescript",
+		"unicorn",
+		"oxc",
+		"import",
+		"promise",
+		"node"
+	],
+	"categories": {
+		"correctness": "error",
+		"suspicious": "error",
+		"pedantic": "error",
+		"perf": "error",
+		"style": "error",
+		"restriction": "error"
+	},
+	"ignorePatterns": [
+		"dist",
+		"tools/oxlint/anti-slop/**",
+		"src/shell/shell.js"
+	],
+	"jsPlugins": [
+		{
+			"name": "anti-slop",
+			"specifier": "./tools/oxlint/anti-slop/index.ts"
+		}
+	],
+	"rules": {
+		"anti-slop/no-chained-type-assertions": "error",
+		"anti-slop/no-conditional-empty-object-spread": "error",
+		"anti-slop/no-known-value-widening": "error",
+		"anti-slop/no-module-mocking": "error",
+		"anti-slop/no-object-parameters": "error",
+		"anti-slop/no-reflect-apply": "error",
+		"anti-slop/no-reflect-get": "error",
+		"anti-slop/no-runtime-typeof": "error",
+		"anti-slop/no-shape-in-symbol-names": "error",
+		"anti-slop/no-unknown-parameters": "error",
+		"anti-slop/no-unknown-returns": "error",
+		"anti-slop/no-unknown-type-aliases": "error",
+		"anti-slop/no-unsafe-dictionary-type": "error",
+		"anti-slop/no-widen-then-assert": "error",
+		"anti-slop/require-safety-comment-for-type-assertion": "error",
+		"oxc/no-async-await": "off",
+		"oxc/no-optional-chaining": "off",
+		"oxc/no-rest-spread-properties": "off",
+		"eslint/no-ternary": "off",
+		"eslint/no-undefined": "off",
+		"eslint/no-continue": "off",
+		"eslint/no-await-in-loop": "off",
+		"eslint/no-console": "off",
+		"eslint/no-magic-numbers": "off",
+		"eslint/one-var": "off",
+		"eslint/func-style": "off",
+		"eslint/sort-keys": "off",
+		"eslint/sort-imports": "off",
+		"eslint/capitalized-comments": "off",
+		"eslint/init-declarations": "off",
+		"eslint/no-use-before-define": [
+			"error",
+			{
+				"functions": false
+			}
+		],
+		"eslint/no-void": [
+			"error",
+			{
+				"allowAsStatement": true
+			}
+		],
+		"typescript/promise-function-async": "off",
+		"typescript/prefer-readonly-parameter-types": [
+			"error",
+			{
+				"treatMethodsAsReadonly": true,
+				"ignoreInferredTypes": true,
+				"allow": [
+					"ZodType",
+					"BunFile",
+					"Subprocess"
+				]
+			}
+		],
+		"eslint/no-duplicate-imports": "off",
+		"eslint/id-length": [
+			"error",
+			{
+				"exceptions": [
+					"T"
+				]
+			}
+		],
+		"unicorn/no-useless-undefined": "off",
+		"unicorn/import-style": "off",
+		"unicorn/no-process-exit": "off",
+		"unicorn/no-null": "off",
+		"unicorn/max-nested-calls": "off",
+		"unicorn/consistent-function-scoping": "off",
+		"import/no-named-export": "off",
+		"import/group-exports": "off",
+		"import/exports-last": "off",
+		"import/no-nodejs-modules": "off",
+		"import/max-dependencies": "off",
+		"node/no-top-level-await": "off",
+		"typescript/parameter-properties": "off",
+		"eslint/max-statements": "off",
+		"eslint/max-lines-per-function": "off",
+		"eslint/max-lines": "off",
+		"eslint/max-params": "off",
+		"typescript/explicit-function-return-type": [
+			"error",
+			{
+				"allowExpressions": true,
+				"allowTypedFunctionExpressions": true,
+				"allowHigherOrderFunctions": true
+			}
+		]
+	}
+}

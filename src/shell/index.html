@@ -1,95 +1,134 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Backlog Browser</title>
-    <link rel="stylesheet" href="/shell.css" />
-  </head>
-  <body>
-    <header class="toolbar">
-      <nav class="switcher" aria-label="Projects">
-        <ul class="project-list" id="project-list"></ul>
-        <details class="overflow" id="overflow" hidden>
-          <summary id="overflow-summary">More</summary>
-          <ul class="overflow-list" id="overflow-list"></ul>
-        </details>
-      </nav>
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Backlog Browser</title>
+		<link rel="stylesheet" href="/shell.css" />
+	</head>
+	<body>
+		<header class="toolbar">
+			<nav class="switcher" aria-label="Projects">
+				<ul class="project-list" id="project-list"></ul>
+				<details class="overflow" id="overflow" hidden>
+					<summary id="overflow-summary">More</summary>
+					<ul class="overflow-list" id="overflow-list"></ul>
+				</details>
+			</nav>
 
-      <div class="actions">
-        <button class="action" id="picker-button" type="button" title="Find a project (Ctrl/Cmd+K)">
-          Find
-        </button>
-        <button class="action" id="browse-button" type="button" title="Add a project folder">
-          Add
-        </button>
-        <button class="action" id="refresh-button" type="button" title="Re-run discovery">
-          Refresh
-        </button>
-      </div>
-    </header>
+			<div class="actions">
+				<button
+					class="action"
+					id="picker-button"
+					type="button"
+					title="Find a project (Ctrl/Cmd+K)"
+				>
+					Find
+				</button>
+				<button
+					class="action"
+					id="browse-button"
+					type="button"
+					title="Add a project folder"
+				>
+					Add
+				</button>
+				<button
+					class="action"
+					id="refresh-button"
+					type="button"
+					title="Re-run discovery"
+				>
+					Refresh
+				</button>
+			</div>
+		</header>
 
-    <main class="stage">
-      <div class="placeholder" id="placeholder" role="status" aria-live="polite"></div>
-    </main>
+		<main class="stage">
+			<div
+				class="placeholder"
+				id="placeholder"
+				role="status"
+				aria-live="polite"
+			></div>
+		</main>
 
-    <dialog class="sheet picker" id="picker" aria-label="Find a project" closedby="any">
-      <label class="visually-hidden" for="picker-input">Filter projects</label>
-      <!--
+		<dialog
+			class="sheet picker"
+			id="picker"
+			aria-label="Find a project"
+			closedby="any"
+		>
+			<label class="visually-hidden" for="picker-input">Filter projects</label>
+			<!--
         Not type="search". Chrome's Escape default on a search field is "clear the field", and it
         consumes the dialog's close request, so the first Escape does nothing visible and only the
         second one closes the picker.
       -->
-      <input
-        autocomplete="off"
-        class="picker-input"
-        id="picker-input"
-        placeholder="Filter by name or path"
-        type="text"
-      />
-      <ul class="picker-list" id="picker-list"></ul>
-      <div class="picker-footer">
-        <label class="toggle">
-          <input id="show-hidden" type="checkbox" />
-          Show hidden
-        </label>
-        <span class="order-mode">Order: <span class="mode-pill" id="order-mode"></span></span>
-        <button class="action" id="reset-order" type="button">Reset order</button>
-      </div>
-    </dialog>
+			<input
+				autocomplete="off"
+				class="picker-input"
+				id="picker-input"
+				placeholder="Filter by name or path"
+				type="text"
+			/>
+			<ul class="picker-list" id="picker-list"></ul>
+			<div class="picker-footer">
+				<label class="toggle">
+					<input id="show-hidden" type="checkbox" />
+					Show hidden
+				</label>
+				<span class="order-mode"
+					>Order: <span class="mode-pill" id="order-mode"></span
+				></span>
+				<button class="action" id="reset-order" type="button">
+					Reset order
+				</button>
+			</div>
+		</dialog>
 
-    <dialog class="sheet" id="refresh-dialog" aria-labelledby="refresh-heading" closedby="any">
-      <form class="sheet-form" id="refresh-form" method="dialog">
-        <h2 class="sheet-heading" id="refresh-heading">Re-run discovery</h2>
-        <label class="field-label" for="refresh-depth">Levels to walk</label>
-        <input
-          class="field-input"
-          id="refresh-depth"
-          max="20"
-          min="1"
-          step="1"
-          type="number"
-        />
-        <p class="field-note" id="refresh-note"></p>
-        <div class="sheet-actions">
-          <button class="action" data-close type="button">Cancel</button>
-          <button class="action action-primary" type="submit">Refresh</button>
-        </div>
-      </form>
-    </dialog>
+		<dialog
+			class="sheet"
+			id="refresh-dialog"
+			aria-labelledby="refresh-heading"
+			closedby="any"
+		>
+			<form class="sheet-form" id="refresh-form" method="dialog">
+				<h2 class="sheet-heading" id="refresh-heading">Re-run discovery</h2>
+				<label class="field-label" for="refresh-depth">Levels to walk</label>
+				<input
+					class="field-input"
+					id="refresh-depth"
+					max="20"
+					min="1"
+					step="1"
+					type="number"
+				/>
+				<p class="field-note" id="refresh-note"></p>
+				<div class="sheet-actions">
+					<button class="action" data-close type="button">Cancel</button>
+					<button class="action action-primary" type="submit">Refresh</button>
+				</div>
+			</form>
+		</dialog>
 
-    <dialog class="sheet" id="notice" aria-labelledby="notice-heading" closedby="any">
-      <form class="sheet-form" method="dialog">
-        <h2 class="sheet-heading" id="notice-heading">Something went wrong</h2>
-        <p class="field-note" id="notice-detail"></p>
-        <div class="sheet-actions">
-          <button class="action action-primary" type="submit">OK</button>
-        </div>
-      </form>
-    </dialog>
+		<dialog
+			class="sheet"
+			id="notice"
+			aria-labelledby="notice-heading"
+			closedby="any"
+		>
+			<form class="sheet-form" method="dialog">
+				<h2 class="sheet-heading" id="notice-heading">Something went wrong</h2>
+				<p class="field-note" id="notice-detail"></p>
+				<div class="sheet-actions">
+					<button class="action action-primary" type="submit">OK</button>
+				</div>
+			</form>
+		</dialog>
 
-    <div class="context-menu" id="context-menu" role="menu" hidden></div>
+		<div class="context-menu" id="context-menu" role="menu" hidden></div>
 
-    <script src="/shell.js" type="module"></script>
-  </body>
+		<script src="/shell.js" type="module"></script>
+	</body>
 </html>

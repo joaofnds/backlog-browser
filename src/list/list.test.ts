@@ -10,261 +10,284 @@ const gamma = new Project({ path: "/code/gamma", name: "Gamma" });
 const discovered = [alpha, beta, gamma];
 
 function pathsOf(listed: readonly { project: Project }[]): string[] {
-  return listed.map((entry) => entry.project.path);
+	return listed.map((entry) => entry.project.path);
 }
 
-function visiblePathsOf(listed: readonly { project: Project; hidden: boolean }[]): string[] {
-  return pathsOf(listed.filter((entry) => !entry.hidden));
+function visiblePathsOf(
+	listed: readonly { project: Project; hidden: boolean }[],
+): string[] {
+	return pathsOf(listed.filter((entry) => !entry.hidden));
 }
 
 describe("ProjectList", () => {
-  describe("arrange", () => {
-    test("keeps the discovered order while the list is in default mode", () => {
-      expect(pathsOf(ProjectList.empty().arrange(discovered))).toEqual([
-        "/code/alpha",
-        "/code/beta",
-        "/code/gamma",
-      ]);
-    });
+	describe("arrange", () => {
+		test("keeps the discovered order while the list is in default mode", () => {
+			expect(pathsOf(ProjectList.empty().arrange(discovered))).toEqual([
+				"/code/alpha",
+				"/code/beta",
+				"/code/gamma",
+			]);
+		});
 
-    test("flags a hidden project and sinks it below the visible ones", () => {
-      const list = ProjectList.empty().hide("/code/alpha");
+		test("flags a hidden project and sinks it below the visible ones", () => {
+			const list = ProjectList.empty().hide("/code/alpha");
 
-      const arranged = list.arrange(discovered);
+			const arranged = list.arrange(discovered);
 
-      expect(visiblePathsOf(arranged)).toEqual(["/code/beta", "/code/gamma"]);
-      expect(pathsOf(arranged)).toEqual(["/code/beta", "/code/gamma", "/code/alpha"]);
-    });
+			expect(visiblePathsOf(arranged)).toEqual(["/code/beta", "/code/gamma"]);
+			expect(pathsOf(arranged)).toEqual([
+				"/code/beta",
+				"/code/gamma",
+				"/code/alpha",
+			]);
+		});
 
-    test("follows the stored order in manual mode", () => {
-      const list = new ProjectList({
-        mode: "manual",
-        order: ["/code/gamma", "/code/alpha", "/code/beta"],
-        hidden: [],
-        added: [],
-      });
+		test("follows the stored order in manual mode", () => {
+			const list = new ProjectList({
+				mode: "manual",
+				order: ["/code/gamma", "/code/alpha", "/code/beta"],
+				hidden: [],
+				added: [],
+			});
 
-      expect(pathsOf(list.arrange(discovered))).toEqual([
-        "/code/gamma",
-        "/code/alpha",
-        "/code/beta",
-      ]);
-    });
+			expect(pathsOf(list.arrange(discovered))).toEqual([
+				"/code/gamma",
+				"/code/alpha",
+				"/code/beta",
+			]);
+		});
 
-    test("appends a project the stored order does not know", () => {
-      const list = new ProjectList({
-        mode: "manual",
-        order: ["/code/gamma", "/code/beta"],
-        hidden: [],
-        added: [],
-      });
+		test("appends a project the stored order does not know", () => {
+			const list = new ProjectList({
+				mode: "manual",
+				order: ["/code/gamma", "/code/beta"],
+				hidden: [],
+				added: [],
+			});
 
-      expect(pathsOf(list.arrange(discovered))).toEqual([
-        "/code/gamma",
-        "/code/beta",
-        "/code/alpha",
-      ]);
-    });
+			expect(pathsOf(list.arrange(discovered))).toEqual([
+				"/code/gamma",
+				"/code/beta",
+				"/code/alpha",
+			]);
+		});
 
-    test("appends several unknown projects by name", () => {
-      const list = new ProjectList({
-        mode: "manual",
-        order: ["/code/gamma"],
-        hidden: [],
-        added: [],
-      });
+		test("appends several unknown projects by name", () => {
+			const list = new ProjectList({
+				mode: "manual",
+				order: ["/code/gamma"],
+				hidden: [],
+				added: [],
+			});
 
-      expect(pathsOf(list.arrange(discovered))).toEqual([
-        "/code/gamma",
-        "/code/alpha",
-        "/code/beta",
-      ]);
-    });
+			expect(pathsOf(list.arrange(discovered))).toEqual([
+				"/code/gamma",
+				"/code/alpha",
+				"/code/beta",
+			]);
+		});
 
-    test("leaves out a stored path the walk did not find", () => {
-      const list = new ProjectList({
-        mode: "manual",
-        order: ["/code/gone", "/code/alpha"],
-        hidden: ["/code/vanished"],
-        added: [],
-      });
+		test("leaves out a stored path the walk did not find", () => {
+			const list = new ProjectList({
+				mode: "manual",
+				order: ["/code/gone", "/code/alpha"],
+				hidden: ["/code/vanished"],
+				added: [],
+			});
 
-      expect(pathsOf(list.arrange([alpha]))).toEqual(["/code/alpha"]);
-    });
-  });
+			expect(pathsOf(list.arrange([alpha]))).toEqual(["/code/alpha"]);
+		});
+	});
 
-  describe("hide", () => {
-    test("marks the project hidden", () => {
-      const list = ProjectList.empty().hide("/code/alpha");
+	describe("hide", () => {
+		test("marks the project hidden", () => {
+			const list = ProjectList.empty().hide("/code/alpha");
 
-      expect(list.hidden).toEqual(["/code/alpha"]);
-    });
+			expect(list.hidden).toEqual(["/code/alpha"]);
+		});
 
-    test("drops the project from the manual order", () => {
-      const list = new ProjectList({
-        mode: "manual",
-        order: ["/code/alpha", "/code/beta"],
-        hidden: [],
-        added: [],
-      });
+		test("drops the project from the manual order", () => {
+			const list = new ProjectList({
+				mode: "manual",
+				order: ["/code/alpha", "/code/beta"],
+				hidden: [],
+				added: [],
+			});
 
-      expect(list.hide("/code/alpha").order).toEqual(["/code/beta"]);
-    });
+			expect(list.hide("/code/alpha").order).toEqual(["/code/beta"]);
+		});
 
-    test("hides a project already hidden without duplicating it", () => {
-      const list = ProjectList.empty().hide("/code/alpha").hide("/code/alpha");
+		test("hides a project already hidden without duplicating it", () => {
+			const list = ProjectList.empty().hide("/code/alpha").hide("/code/alpha");
 
-      expect(list.hidden).toEqual(["/code/alpha"]);
-    });
-  });
+			expect(list.hidden).toEqual(["/code/alpha"]);
+		});
+	});
 
-  describe("show", () => {
-    test("clears the hidden mark", () => {
-      const list = ProjectList.empty().hide("/code/alpha").show("/code/alpha");
+	describe("show", () => {
+		test("clears the hidden mark", () => {
+			const list = ProjectList.empty().hide("/code/alpha").show("/code/alpha");
 
-      expect(list.hidden).toEqual([]);
-    });
+			expect(list.hidden).toEqual([]);
+		});
 
-    test("returns the project to its name slot in default mode", () => {
-      const list = ProjectList.empty().hide("/code/alpha").show("/code/alpha");
+		test("returns the project to its name slot in default mode", () => {
+			const list = ProjectList.empty().hide("/code/alpha").show("/code/alpha");
 
-      expect(pathsOf(list.arrange(discovered))).toEqual([
-        "/code/alpha",
-        "/code/beta",
-        "/code/gamma",
-      ]);
-    });
+			expect(pathsOf(list.arrange(discovered))).toEqual([
+				"/code/alpha",
+				"/code/beta",
+				"/code/gamma",
+			]);
+		});
 
-    test("drops the project at the end of a manual order", () => {
-      const list = new ProjectList({
-        mode: "manual",
-        order: ["/code/alpha", "/code/beta", "/code/gamma"],
-        hidden: [],
-        added: [],
-      })
-        .hide("/code/alpha")
-        .show("/code/alpha");
+		test("drops the project at the end of a manual order", () => {
+			const list = new ProjectList({
+				mode: "manual",
+				order: ["/code/alpha", "/code/beta", "/code/gamma"],
+				hidden: [],
+				added: [],
+			})
+				.hide("/code/alpha")
+				.show("/code/alpha");
 
-      expect(pathsOf(list.arrange(discovered))).toEqual([
-        "/code/beta",
-        "/code/gamma",
-        "/code/alpha",
-      ]);
-    });
-  });
+			expect(pathsOf(list.arrange(discovered))).toEqual([
+				"/code/beta",
+				"/code/gamma",
+				"/code/alpha",
+			]);
+		});
+	});
 
-  describe("move", () => {
-    test("switches the list to manual mode", () => {
-      const list = ProjectList.empty().move({
-        path: "/code/gamma",
-        before: "/code/alpha",
-        discovered,
-      });
+	describe("move", () => {
+		test("switches the list to manual mode", () => {
+			const list = ProjectList.empty().move({
+				path: "/code/gamma",
+				before: "/code/alpha",
+				discovered,
+			});
 
-      expect(list.mode).toEqual("manual");
-    });
+			expect(list.mode).toEqual("manual");
+		});
 
-    test("seeds the order from the discovered order on the first move", () => {
-      const list = ProjectList.empty().move({
-        path: "/code/gamma",
-        before: "/code/alpha",
-        discovered,
-      });
+		test("seeds the order from the discovered order on the first move", () => {
+			const list = ProjectList.empty().move({
+				path: "/code/gamma",
+				before: "/code/alpha",
+				discovered,
+			});
 
-      expect(list.order).toEqual(["/code/gamma", "/code/alpha", "/code/beta"]);
-    });
+			expect(list.order).toEqual(["/code/gamma", "/code/alpha", "/code/beta"]);
+		});
 
-    test("moves the project to the end when nothing follows it", () => {
-      const list = ProjectList.empty().move({ path: "/code/alpha", before: null, discovered });
+		test("moves the project to the end when nothing follows it", () => {
+			const list = ProjectList.empty().move({
+				path: "/code/alpha",
+				before: null,
+				discovered,
+			});
 
-      expect(list.order).toEqual(["/code/beta", "/code/gamma", "/code/alpha"]);
-    });
+			expect(list.order).toEqual(["/code/beta", "/code/gamma", "/code/alpha"]);
+		});
 
-    test("keeps a stored path the walk did not find", () => {
-      const list = new ProjectList({
-        mode: "manual",
-        order: ["/code/alpha", "/code/gone", "/code/beta"],
-        hidden: [],
-        added: [],
-      });
+		test("keeps a stored path the walk did not find", () => {
+			const list = new ProjectList({
+				mode: "manual",
+				order: ["/code/alpha", "/code/gone", "/code/beta"],
+				hidden: [],
+				added: [],
+			});
 
-      expect(list.move({ path: "/code/beta", before: "/code/alpha", discovered }).order).toEqual([
-        "/code/beta",
-        "/code/alpha",
-        "/code/gone",
-      ]);
-    });
+			expect(
+				list.move({ path: "/code/beta", before: "/code/alpha", discovered })
+					.order,
+			).toEqual(["/code/beta", "/code/alpha", "/code/gone"]);
+		});
 
-    test("leaves the order untouched when the anchor is unknown", () => {
-      const list = new ProjectList({
-        mode: "manual",
-        order: ["/code/alpha", "/code/beta"],
-        hidden: [],
-        added: [],
-      });
+		test("leaves the order untouched when the anchor is unknown", () => {
+			const list = new ProjectList({
+				mode: "manual",
+				order: ["/code/alpha", "/code/beta"],
+				hidden: [],
+				added: [],
+			});
 
-      expect(list.move({ path: "/code/alpha", before: "/code/nowhere", discovered }).order).toEqual(
-        ["/code/alpha", "/code/beta"],
-      );
-    });
+			expect(
+				list.move({ path: "/code/alpha", before: "/code/nowhere", discovered })
+					.order,
+			).toEqual(["/code/alpha", "/code/beta"]);
+		});
 
-    test("ignores a hidden project", () => {
-      const list = ProjectList.empty().hide("/code/alpha");
+		test("ignores a hidden project", () => {
+			const list = ProjectList.empty().hide("/code/alpha");
 
-      expect(list.move({ path: "/code/alpha", before: "/code/beta", discovered })).toEqual(list);
-    });
-  });
+			expect(
+				list.move({ path: "/code/alpha", before: "/code/beta", discovered }),
+			).toEqual(list);
+		});
+	});
 
-  describe("reset", () => {
-    test("returns the list to default mode", () => {
-      const list = ProjectList.empty()
-        .move({ path: "/code/gamma", before: "/code/alpha", discovered })
-        .reset();
+	describe("reset", () => {
+		test("returns the list to default mode", () => {
+			const list = ProjectList.empty()
+				.move({ path: "/code/gamma", before: "/code/alpha", discovered })
+				.reset();
 
-      expect(list.mode).toEqual("default");
-    });
+			expect(list.mode).toEqual("default");
+		});
 
-    test("forgets the manual order", () => {
-      const list = ProjectList.empty()
-        .move({ path: "/code/gamma", before: "/code/alpha", discovered })
-        .reset();
+		test("forgets the manual order", () => {
+			const list = ProjectList.empty()
+				.move({ path: "/code/gamma", before: "/code/alpha", discovered })
+				.reset();
 
-      expect(list.order).toEqual([]);
-    });
+			expect(list.order).toEqual([]);
+		});
 
-    test("keeps hidden projects hidden", () => {
-      const list = ProjectList.empty().hide("/code/alpha").reset();
+		test("keeps hidden projects hidden", () => {
+			const list = ProjectList.empty().hide("/code/alpha").reset();
 
-      expect(list.hidden).toEqual(["/code/alpha"]);
-    });
-  });
+			expect(list.hidden).toEqual(["/code/alpha"]);
+		});
+	});
 
-  describe("from", () => {
-    test("reads a stored list back", () => {
-      const stored = { mode: "manual", order: ["/code/beta"], hidden: ["/code/alpha"] };
+	describe("from", () => {
+		test("reads a stored list back", () => {
+			const stored = {
+				mode: "manual",
+				order: ["/code/beta"],
+				hidden: ["/code/alpha"],
+			};
 
-      expect(ProjectList.from(stored)).toEqual(
-        new ProjectList({
-          mode: "manual",
-          order: ["/code/beta"],
-          hidden: ["/code/alpha"],
-          added: [],
-        }),
-      );
-    });
+			expect(ProjectList.from(stored)).toEqual(
+				new ProjectList({
+					mode: "manual",
+					order: ["/code/beta"],
+					hidden: ["/code/alpha"],
+					added: [],
+				}),
+			);
+		});
 
-    test("falls back to an empty list for anything unrecognisable", () => {
-      expect(ProjectList.from("pkgs-9407c907")).toEqual(ProjectList.empty());
-      expect(ProjectList.from(undefined)).toEqual(ProjectList.empty());
-      expect(ProjectList.from({ mode: "sideways" })).toEqual(ProjectList.empty());
-    });
+		test("falls back to an empty list for anything unrecognisable", () => {
+			expect(ProjectList.from("pkgs-9407c907")).toEqual(ProjectList.empty());
+			expect(ProjectList.from(undefined)).toEqual(ProjectList.empty());
+			expect(ProjectList.from({ mode: "sideways" })).toEqual(
+				ProjectList.empty(),
+			);
+		});
 
-    test("keeps the entries that are strings and drops the rest", () => {
-      const stored = { mode: "manual", order: ["/code/beta", 7], hidden: null };
+		test("keeps the entries that are strings and drops the rest", () => {
+			const stored = { mode: "manual", order: ["/code/beta", 7], hidden: null };
 
-      expect(ProjectList.from(stored)).toEqual(
-        new ProjectList({ mode: "manual", order: ["/code/beta"], hidden: [], added: [] }),
-      );
-    });
-  });
+			expect(ProjectList.from(stored)).toEqual(
+				new ProjectList({
+					mode: "manual",
+					order: ["/code/beta"],
+					hidden: [],
+					added: [],
+				}),
+			);
+		});
+	});
 });

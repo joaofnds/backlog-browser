@@ -2,12 +2,13 @@ import { homedir } from "node:os";
 import { resolve } from "node:path";
 import { parseArgs } from "node:util";
 
-import { SETTING_BOUNDS, type SettingBounds } from "./state/settings.ts";
+import { SETTING_BOUNDS } from "./state/settings.ts";
+import type { SettingBounds } from "./state/settings.ts";
 
 export const DEFAULTS = {
-  port: 6789,
-  depth: 5,
-  idleTimeoutMinutes: 5,
+	port: 6789,
+	depth: 5,
+	idleTimeoutMinutes: 5,
 } as const;
 
 export const USAGE = `Usage: backlog-browser [root]
@@ -22,87 +23,117 @@ Options:
   --no-open            do not open the browser
   -h, --help           show this message`;
 
-export type HubOptions = {
-  root: string;
-  port: number;
-  depth: number | null;
-  idleTimeoutMs: number;
-  rescan: boolean;
-  open: boolean;
-};
+export interface HubOptions {
+	root: string;
+	port: number;
+	depth: number | null;
+	idleTimeoutMs: number;
+	rescan: boolean;
+	open: boolean;
+}
 
 export class UsageError extends Error {}
 
 export function parseOptions(argv: string[]): HubOptions {
-  const { values, positionals } = read(argv);
+	const { values, positionals } = read(argv);
 
-  if (positionals.length > 1) {
-    throw new UsageError(`Expected at most one root directory, got ${positionals.length}.`);
-  }
+	if (positionals.length > 1) {
+		throw new UsageError(
+			`Expected at most one root directory, got ${positionals.length}.`,
+		);
+	}
 
-  return {
-    root: expand(positionals[0] ?? process.cwd()),
-    port: numeric("--port", values.port, DEFAULTS.port, 1),
-    depth: bounded("--depth", values.depth, SETTING_BOUNDS.depth),
-    idleTimeoutMs:
-      numeric("--idle-timeout", values["idle-timeout"], DEFAULTS.idleTimeoutMinutes, 0) * 60_000,
-    rescan: values.rescan === true,
-    open: values.open !== false,
-  };
+	return {
+		root: expand(positionals[0] ?? process.cwd()),
+		port: numeric("--port", values.port, DEFAULTS.port, 1),
+		depth: bounded("--depth", values.depth, SETTING_BOUNDS.depth),
+		idleTimeoutMs:
+			numeric(
+				"--idle-timeout",
+				values["idle-timeout"],
+				DEFAULTS.idleTimeoutMinutes,
+				0,
+			) * 60_000,
+		rescan: values.rescan === true,
+		open: values.open !== false,
+	};
 }
 
 function read(argv: string[]) {
-  try {
-    return parseArgs({
-      args: argv,
-      allowPositionals: true,
-      allowNegative: true,
-      options: {
-        port: { type: "string" },
-        depth: { type: "string" },
-        "idle-timeout": { type: "string" },
-        rescan: { type: "boolean", default: false },
-        open: { type: "boolean", default: true },
-        help: { type: "boolean", short: "h", default: false },
-      },
-    });
-  } catch (cause) {
-    throw new UsageError(`${(cause as Error).message}\n\n${USAGE}`);
-  }
+	try {
+		return parseArgs({
+			args: argv,
+			allowPositionals: true,
+			allowNegative: true,
+			options: {
+				port: { type: "string" },
+				depth: { type: "string" },
+				"idle-timeout": { type: "string" },
+				rescan: { type: "boolean", default: false },
+				open: { type: "boolean", default: true },
+				help: { type: "boolean", short: "h", default: false },
+			},
+		});
+	} catch (error) {
+		throw new UsageError(`${(error as Error).message}\n\n${USAGE}`);
+	}
 }
 
 export function wantsHelp(argv: string[]): boolean {
-  return argv.includes("--help") || argv.includes("-h");
+	return argv.includes("--help") || argv.includes("-h");
 }
 
 /** `null` is "the flag was absent", which is what lets a value chosen in the shell survive. */
-function bounded(flag: string, raw: string | undefined, bounds: SettingBounds): number | null {
-  if (raw === undefined) return null;
+function bounded(
+	flag: string,
+	raw: string | undefined,
+	bounds: SettingBounds,
+): number | null {
+	if (raw === undefined) {
+		return null;
+	}
 
-  const value = Number(raw);
-  if (!Number.isInteger(value) || value < bounds.minimum || value > bounds.maximum) {
-    throw new UsageError(
-      `${flag} expects a whole number between ${bounds.minimum} and ${bounds.maximum}, got "${raw}".`,
-    );
-  }
+	const value = Number(raw);
+	if (
+		!Number.isInteger(value) ||
+		value < bounds.minimum ||
+		value > bounds.maximum
+	) {
+		throw new UsageError(
+			`${flag} expects a whole number between ${bounds.minimum} and ${bounds.maximum}, got "${raw}".`,
+		);
+	}
 
-  return value;
+	return value;
 }
 
-function numeric(flag: string, raw: string | undefined, fallback: number, minimum: number): number {
-  if (raw === undefined) return fallback;
+function numeric(
+	flag: string,
+	raw: string | undefined,
+	fallback: number,
+	minimum: number,
+): number {
+	if (raw === undefined) {
+		return fallback;
+	}
 
-  const value = Number(raw);
-  if (!Number.isInteger(value) || value < minimum) {
-    throw new UsageError(`${flag} expects a whole number of at least ${minimum}, got "${raw}".`);
-  }
+	const value = Number(raw);
+	if (!Number.isInteger(value) || value < minimum) {
+		throw new UsageError(
+			`${flag} expects a whole number of at least ${minimum}, got "${raw}".`,
+		);
+	}
 
-  return value;
+	return value;
 }
 
 function expand(path: string): string {
-  if (path === "~") return homedir();
-  if (path.startsWith("~/")) return resolve(homedir(), path.slice(2));
+	if (path === "~") {
+		return homedir();
+	}
+	if (path.startsWith("~/")) {
+		return resolve(homedir(), path.slice(2));
+	}
 
-  return resolve(path);
+	return resolve(path);
 }
