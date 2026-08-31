@@ -6,32 +6,45 @@
  * @typedef {{ kind: "chosen", path: string } | { kind: "cancelled" }} ChosenFolder
  */
 
-/** @param {string} id */
-function must(id) {
+/**
+ * The element the shell document promises under this id. It is a programming error for one to be
+ * missing, so this throws rather than returning null and leaving every caller to check.
+ *
+ * @template {HTMLElement} T
+ * @param {string} id
+ * @param {new () => T} [type] the element the caller expects, when it needs more than HTMLElement
+ * @returns {T}
+ */
+function must(id, type) {
   const node = document.getElementById(id);
-  if (node === null) throw new Error(`the shell document is missing #${id}`);
+  if (node === null) {
+    throw new Error(`the shell document is missing #${id}`);
+  }
+  if (type !== undefined && !(node instanceof type)) {
+    throw new Error(`#${id} is not a ${type.name}`);
+  }
 
-  return node;
+  return /** @type {T} */ (node);
 }
 
-const browseButton = /** @type {HTMLButtonElement} */ (must("browse-button"));
+const browseButton = must("browse-button", HTMLButtonElement);
 const contextMenu = must("context-menu");
-const notice = /** @type {HTMLDialogElement} */ (must("notice"));
+const notice = must("notice", HTMLDialogElement);
 const noticeDetail = must("notice-detail");
 const noticeHeading = must("notice-heading");
 const orderMode = must("order-mode");
 const overflow = must("overflow");
 const overflowList = must("overflow-list");
 const overflowSummary = must("overflow-summary");
-const picker = /** @type {HTMLDialogElement} */ (must("picker"));
-const refreshDepth = /** @type {HTMLInputElement} */ (must("refresh-depth"));
-const refreshDialog = /** @type {HTMLDialogElement} */ (must("refresh-dialog"));
+const picker = must("picker", HTMLDialogElement);
+const refreshDepth = must("refresh-depth", HTMLInputElement);
+const refreshDialog = must("refresh-dialog", HTMLDialogElement);
 const refreshNote = must("refresh-note");
-const pickerInput = /** @type {HTMLInputElement} */ (must("picker-input"));
+const pickerInput = must("picker-input", HTMLInputElement);
 const pickerList = must("picker-list");
 const placeholder = must("placeholder");
 const projectList = must("project-list");
-const showHidden = /** @type {HTMLInputElement} */ (must("show-hidden"));
+const showHidden = must("show-hidden", HTMLInputElement);
 const stage = /** @type {HTMLElement} */ (must("placeholder").parentElement);
 const switcher = /** @type {HTMLElement} */ (must("project-list").parentElement);
 
