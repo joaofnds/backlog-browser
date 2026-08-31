@@ -12,7 +12,8 @@ import { fileURLToPath } from "node:url";
 const cli = fileURLToPath(new URL("../src/cli.ts", import.meta.url));
 const hub = spawn("bun", [cli, ...process.argv.slice(2)], { stdio: "inherit" });
 
-hub.on("error", (/** @type {NodeJS.ErrnoException} */ error) => {
+/** @param {NodeJS.ErrnoException} error */
+const onSpawnError = (error) => {
 	if (error.code === "ENOENT") {
 		console.error(
 			"backlog-browser needs Bun to run, and there is no `bun` on your PATH.",
@@ -25,7 +26,9 @@ hub.on("error", (/** @type {NodeJS.ErrnoException} */ error) => {
 
 	console.error(error.message);
 	process.exit(1);
-});
+};
+
+hub.on("error", onSpawnError);
 
 // The hub stops its children on the way down, so it has to receive the signal rather than be
 // killed with the wrapper. Ctrl+C reaches both through the process group; a signal sent to this

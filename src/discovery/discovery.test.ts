@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { findProjectPaths, readProjects } from "./discovery.ts";
+import type { Project } from "./project.ts";
 
 let root: string;
 
@@ -22,21 +23,21 @@ afterEach(async () => {
 async function makeProject(
 	relativePath: string,
 	config = 'project_name: "Named"\n',
-) {
+): Promise<string> {
 	const path = relativePath === "." ? root : join(root, relativePath);
 	await Bun.write(join(path, "backlog", "config.yml"), config);
 	return path;
 }
 
-async function makePlainDirectory(relativePath: string) {
+async function makePlainDirectory(relativePath: string): Promise<void> {
 	await Bun.write(join(root, relativePath, "README.md"), "placeholder\n");
 }
 
-function namesOf(projects: { name: string }[]) {
+function namesOf(projects: { name: string }[]): string[] {
 	return projects.map((project) => project.name);
 }
 
-async function discover(depth = 5) {
+async function discover(depth = 5): Promise<Project[]> {
 	return readProjects(await findProjectPaths({ root, depth }));
 }
 

@@ -116,6 +116,7 @@
 				"allowTypedFunctionExpressions": true,
 				"allowHigherOrderFunctions": true
 			}
-		]
+		],
+		"import/prefer-default-export": "off"
 	}
 }

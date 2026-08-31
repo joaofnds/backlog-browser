@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { Project } from "../discovery/project.ts";
 import { FakeBacklog } from "./fake-backlog.ts";
 import { MAX_PORT_ATTEMPTS, Supervisor } from "./supervisor.ts";
+import type { Activation } from "./supervisor.ts";
 
 const alpha = new Project({ path: "/code/alpha", name: "Alpha" });
 const beta = new Project({ path: "/code/beta", name: "Beta" });
@@ -13,7 +14,7 @@ let supervisors: Supervisor[];
 
 function supervisorWith(
 	overrides: Partial<ConstructorParameters<typeof Supervisor>[0]> = {},
-) {
+): Supervisor {
 	const supervisor = new Supervisor({
 		launch: backlog.launch,
 		probe: backlog.probe,
@@ -29,7 +30,10 @@ function supervisorWith(
 	return supervisor;
 }
 
-async function activateReady(supervisor: Supervisor, project: Project) {
+async function activateReady(
+	supervisor: Supervisor,
+	project: Project,
+): Promise<Activation> {
 	await supervisor.activate(project);
 	backlog.answerOn(backlog.childFor(project.path).spec.port);
 	await supervisor.settled(project);
@@ -40,7 +44,7 @@ async function activateReady(supervisor: Supervisor, project: Project) {
 async function activateAllReady(
 	supervisor: Supervisor,
 	projects: readonly Project[],
-) {
+): Promise<void> {
 	for (const project of projects) {
 		await activateReady(supervisor, project);
 	}

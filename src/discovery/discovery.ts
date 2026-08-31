@@ -35,7 +35,7 @@ export const findProjectPaths: ProjectFinder = async (options) => {
 export async function readProjects(
 	paths: readonly string[],
 ): Promise<Project[]> {
-	const found = await Promise.all(paths.map(readProject));
+	const found = await Promise.all(paths.map((path) => readProject(path)));
 	const byPath = new Map<string, Project>();
 	for (const project of found) {
 		if (project !== null) {
@@ -43,7 +43,7 @@ export async function readProjects(
 		}
 	}
 
-	return [...byPath.values()].sort(Project.byName);
+	return [...byPath.values()].toSorted(Project.byName);
 }
 
 /**

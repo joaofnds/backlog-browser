@@ -22,8 +22,8 @@ export class Project {
 function slugFor(path: string): string {
 	const label = basename(path)
 		.toLowerCase()
-		.replaceAll(/[^a-z0-9]+/g, "-")
-		.replaceAll(/^-+|-+$/g, "");
+		.replaceAll(/[^a-z0-9]+/gu, "-")
+		.replaceAll(/^-+|-+$/gu, "");
 	const digest = createHash("sha256").update(path).digest("hex").slice(0, 8);
 
 	return label === "" ? digest : `${label}-${digest}`;

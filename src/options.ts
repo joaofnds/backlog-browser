@@ -32,7 +32,9 @@ export interface HubOptions {
 	open: boolean;
 }
 
-export class UsageError extends Error {}
+export class UsageError extends Error {
+	public override readonly name = "UsageError";
+}
 
 export function parseOptions(argv: string[]): HubOptions {
 	const { values, positionals } = read(argv);
@@ -59,7 +61,19 @@ export function parseOptions(argv: string[]): HubOptions {
 	};
 }
 
-function read(argv: string[]) {
+interface ParsedArgs {
+	values: {
+		port?: string | undefined;
+		depth?: string | undefined;
+		"idle-timeout"?: string | undefined;
+		rescan: boolean;
+		open: boolean;
+		help: boolean;
+	};
+	positionals: string[];
+}
+
+function read(argv: string[]): ParsedArgs {
 	try {
 		return parseArgs({
 			args: argv,

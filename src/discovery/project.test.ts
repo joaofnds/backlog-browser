@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import { Project } from "./project.ts";
 
-function projectAt(path: string, name = "Any Name") {
+function projectAt(path: string, name = "Any Name"): Project {
 	return new Project({ path, name });
 }
 
@@ -11,7 +11,7 @@ describe("Project", () => {
 		test("is url-safe", () => {
 			const project = projectAt("/Users/joao/code/My Project (2024)!");
 
-			expect(project.slug).toMatch(/^[a-z0-9-]+$/);
+			expect(project.slug).toMatch(/^[a-z0-9-]+$/u);
 			expect(encodeURIComponent(project.slug)).toEqual(project.slug);
 		});
 
@@ -42,9 +42,10 @@ describe("Project", () => {
 
 	describe("byName", () => {
 		test("orders case-insensitively", () => {
-			const sorted = [projectAt("/a", "banana"), projectAt("/b", "Apple")].sort(
-				Project.byName,
-			);
+			const sorted = [
+				projectAt("/a", "banana"),
+				projectAt("/b", "Apple"),
+			].toSorted(Project.byName);
 
 			expect(sorted.map((project) => project.name)).toEqual([
 				"Apple",

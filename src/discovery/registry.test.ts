@@ -10,7 +10,7 @@ const DEPTH = 5;
 let root: string;
 let file: string;
 
-async function makeProject(directory: string, name: string) {
+async function makeProject(directory: string, name: string): Promise<string> {
 	const path = join(root, directory);
 	await Bun.write(
 		join(path, "backlog", "config.yml"),
@@ -20,11 +20,11 @@ async function makeProject(directory: string, name: string) {
 	return path;
 }
 
-function registry(depth = DEPTH) {
+function registry(depth = DEPTH): ProjectRegistry {
 	return new ProjectRegistry({ root, depth, file });
 }
 
-function namesOf(projects: readonly { name: string }[]) {
+function namesOf(projects: readonly { name: string }[]): string[] {
 	return projects.map((project) => project.name);
 }
 

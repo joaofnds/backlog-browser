@@ -70,7 +70,7 @@ export class ProjectRegistry {
 		return [
 			...this.discovered,
 			...this.adopted.filter((project) => !known.has(project.path)),
-		].sort(Project.byName);
+		].toSorted(Project.byName);
 	}
 
 	public find(slug: string): Project | undefined {

@@ -9,9 +9,9 @@ export interface LaunchSpec {
 
 export interface ChildProcess {
 	readonly exited: Promise<number>;
-	stderrTail(): string;
-	kill(): void;
-	terminate(): void;
+	stderrTail: () => string;
+	kill: () => void;
+	terminate: () => void;
 }
 
 export type ChildLauncher = (spec: LaunchSpec) => ChildProcess;
@@ -22,7 +22,7 @@ export function urlFor(port: number): string {
 }
 
 export function isPortCollision(stderr: string): boolean {
-	return /EADDRINUSE|address already in use/i.test(stderr);
+	return /EADDRINUSE|address already in use/iu.test(stderr);
 }
 
 export function backlogLauncher(binary: string): ChildLauncher {
@@ -55,11 +55,16 @@ class BacklogChild implements ChildProcess {
 		);
 
 		this.collectStderr();
-		this.exited.then(() => this.cancelEscalation());
+		void this.awaitExit();
 	}
 
 	public get exited(): Promise<number> {
 		return this.process.exited;
+	}
+
+	private async awaitExit(): Promise<void> {
+		await this.exited;
+		this.cancelEscalation();
 	}
 
 	public stderrTail(): string {
@@ -94,7 +99,9 @@ class BacklogChild implements ChildProcess {
 		} catch {
 			try {
 				this.process.kill(signal);
-			} catch {}
+			} catch {
+				// The process is already gone, which is the outcome the signal was for.
+			}
 		}
 	}
 

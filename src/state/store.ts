@@ -88,12 +88,18 @@ export class StateStore {
 	 * Every write is a read-modify-write of the whole file, so two of them in flight at once lose
 	 * one update. Activating a project, reordering the list and claiming a port are separate writers,
 	 * so queue them, and read the current state inside the queue rather than before joining it.
+	 *
+	 * Not `async`, and the `.then` is the reason: the queue tail has to be reassigned in the same
+	 * tick as the call. Awaiting first lets a second caller join the queue before the first has
+	 * extended it, and both then write from the same starting state. `store.test.ts` catches it.
 	 */
 	private update(
 		change: (current: RootState) => RootState,
 	): Promise<RootState> {
+		/* oxlint-disable promise/prefer-await-to-then, eslint/no-empty-function */
 		const done = this.writes.then(() => this.apply(change));
 		this.writes = done.catch(() => {});
+		/* oxlint-enable promise/prefer-await-to-then, eslint/no-empty-function */
 
 		return done;
 	}

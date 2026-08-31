@@ -14,6 +14,11 @@ import type { StateStore } from "../state/store.ts";
 import { LOOPBACK } from "../supervisor/child.ts";
 import type { Supervisor } from "../supervisor/supervisor.ts";
 
+/*
+ * `registry.find(slug)` is our own lookup by slug, not `Array#find`, so the callback rule below
+ * matches on the method name alone and would have us pass a function where a string belongs.
+ */
+/* oxlint-disable unicorn/no-array-callback-reference */
 export function startHub(options: {
 	registry: ProjectRegistry;
 	store: StateStore;
@@ -162,6 +167,22 @@ export function startHub(options: {
 
 type Routes<T extends string> = Bun.Serve.Routes<undefined, T>;
 
+interface ProjectSummary {
+	slug: string;
+	name: string;
+	path: string;
+	hidden: boolean;
+	added: boolean;
+}
+
+interface Inventory {
+	root: string;
+	depth: number;
+	active: string | null;
+	mode: "default" | "manual";
+	projects: ProjectSummary[];
+}
+
 /**
  * The hub listens on a known loopback port for as long as it runs, so every page the user visits
  * can reach it. Two headers separate the shell the hub served from everyone else:
@@ -242,7 +263,10 @@ function hostOf(origin: string): string | null {
 	}
 }
 
-async function inventoryOf(registry: ProjectRegistry, store: StateStore) {
+async function inventoryOf(
+	registry: ProjectRegistry,
+	store: StateStore,
+): Promise<Inventory> {
 	const list = await store.list();
 	const kept = keptByHand(list.added, registry.walked());
 
@@ -272,7 +296,10 @@ function outOfRange(field: string, bounds: SettingBounds): string {
 	return `${field} must be a whole number between ${bounds.minimum} and ${bounds.maximum}`;
 }
 
-function statusesOf(registry: ProjectRegistry, supervisor: Supervisor) {
+function statusesOf(
+	registry: ProjectRegistry,
+	supervisor: Supervisor,
+): Record<string, string> {
 	return Object.fromEntries(
 		registry
 			.all()
@@ -280,7 +307,10 @@ function statusesOf(registry: ProjectRegistry, supervisor: Supervisor) {
 	);
 }
 
-function describe(listed: ListedProject, kept: ReadonlySet<string>) {
+function describe(
+	listed: ListedProject,
+	kept: ReadonlySet<string>,
+): ProjectSummary {
 	return {
 		slug: listed.project.slug,
 		name: listed.project.name,

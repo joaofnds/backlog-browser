@@ -36,7 +36,7 @@ export const nativeFolderChooser: FolderChooser = async ({ startAt }) => {
 	]);
 
 	if (code === 0) {
-		return { kind: "chosen", path: out.trim().replace(/\/$/, "") };
+		return { kind: "chosen", path: out.trim().replace(/\/$/u, "") };
 	}
 
 	if (error.includes("-128")) {

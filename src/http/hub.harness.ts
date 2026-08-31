@@ -165,49 +165,49 @@ export interface Inventory {
 export class HubDriver {
 	public constructor(public readonly origin: string) {}
 
-	public async get(path: string): Promise<Response> {
+	public get(path: string): Promise<Response> {
 		return fetch(`${this.origin}${path}`);
 	}
 
-	public async projects(): Promise<Inventory> {
-		return this.read<Inventory>(this.get("/api/projects"));
+	public projects(): Promise<Inventory> {
+		return read<Inventory>(this.get("/api/projects"));
 	}
 
-	public async refresh(depth?: number): Promise<Inventory> {
-		return this.read<Inventory>(this.refreshing(depth));
+	public refresh(depth?: number): Promise<Inventory> {
+		return read<Inventory>(this.refreshing(depth));
 	}
 
-	public async refreshing(depth?: number): Promise<Response> {
+	public refreshing(depth?: number): Promise<Response> {
 		return this.post("/api/refresh", depth === undefined ? {} : { depth });
 	}
 
-	public async chooseFolder(): Promise<Response> {
+	public chooseFolder(): Promise<Response> {
 		return this.post("/api/choose-folder", {});
 	}
 
-	public async addPath(path: string): Promise<Response> {
+	public addPath(path: string): Promise<Response> {
 		return this.post("/api/list/added", { path, added: true });
 	}
 
-	public async dropPath(path: string): Promise<Response> {
+	public dropPath(path: string): Promise<Response> {
 		return this.post("/api/list/added", { path, added: false });
 	}
 
-	public async activate(slug: string): Promise<Response> {
+	public activate(slug: string): Promise<Response> {
 		return fetch(`${this.origin}/api/projects/${slug}/activate`, {
 			method: "POST",
 		});
 	}
 
-	public async statuses(): Promise<Record<string, string>> {
-		return this.read<Record<string, string>>(this.get("/api/status"));
+	public statuses(): Promise<Record<string, string>> {
+		return read<Record<string, string>>(this.get("/api/status"));
 	}
 
-	public async status(slug: string): Promise<Response> {
+	public status(slug: string): Promise<Response> {
 		return this.get(`/api/projects/${slug}`);
 	}
 
-	public async post(path: string, body: unknown): Promise<Response> {
+	public post(path: string, body: unknown): Promise<Response> {
 		return fetch(`${this.origin}${path}`, {
 			method: "POST",
 			headers: { "content-type": "application/json" },
@@ -216,7 +216,7 @@ export class HubDriver {
 	}
 
 	/** A request as another site's page would send it: the browser stamps its own origin on. */
-	public async postFrom(
+	public postFrom(
 		origin: string,
 		path: string,
 		body: unknown,
@@ -229,7 +229,7 @@ export class HubDriver {
 	}
 
 	/** A request reaching the hub under a rebound name rather than its own loopback host. */
-	public async getAs(host: string, path: string): Promise<Response> {
+	public getAs(host: string, path: string): Promise<Response> {
 		return fetch(`${this.origin}${path}`, { headers: { host } });
 	}
 
@@ -261,34 +261,34 @@ export class HubDriver {
 		return new Response(body, { status });
 	}
 
-	public async hide(path: string): Promise<Inventory> {
-		return this.read<Inventory>(
+	public hide(path: string): Promise<Inventory> {
+		return read<Inventory>(
 			this.post("/api/list/hidden", { path, hidden: true }),
 		);
 	}
 
-	public async show(path: string): Promise<Inventory> {
-		return this.read<Inventory>(
+	public show(path: string): Promise<Inventory> {
+		return read<Inventory>(
 			this.post("/api/list/hidden", { path, hidden: false }),
 		);
 	}
 
-	public async move(path: string, before: string | null): Promise<Inventory> {
-		return this.read<Inventory>(this.post("/api/list/order", { path, before }));
+	public move(path: string, before: string | null): Promise<Inventory> {
+		return read<Inventory>(this.post("/api/list/order", { path, before }));
 	}
 
-	public async resetOrder(): Promise<Inventory> {
-		return this.read<Inventory>(this.post("/api/list/reset", {}));
+	public resetOrder(): Promise<Inventory> {
+		return read<Inventory>(this.post("/api/list/reset", {}));
 	}
+}
 
-	/**
-	 * The hub's own routes answer with the shapes declared above, and the tests assert on those
-	 * shapes rather than on the parse. SAFETY: the one place the untyped body is named, so a
-	 * response shape that drifts is a failure in the test that reads it.
-	 */
-	private async read<T>(answering: Promise<Response>): Promise<T> {
-		const response = await answering;
+/**
+ * The hub's own routes answer with the shapes declared above, and the tests assert on those
+ * shapes rather than on the parse. SAFETY: the one place the untyped body is named, so a
+ * response shape that drifts is a failure in the test that reads it.
+ */
+async function read<T>(answering: Promise<Response>): Promise<T> {
+	const response = await answering;
 
-		return (await response.json()) as T;
-	}
+	return (await response.json()) as T;
 }

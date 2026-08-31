@@ -11,7 +11,9 @@ export interface BacklogCli {
 
 const PREFLIGHT_TIMEOUT_MS = 10_000;
 
-export class BacklogUnavailable extends Error {}
+export class BacklogUnavailableError extends Error {
+	public override readonly name = "BacklogUnavailableError";
+}
 
 export async function locateBacklog(
 	options: { run?: CommandRunner } = {},
@@ -20,19 +22,21 @@ export async function locateBacklog(
 
 	const version = await run([BINARY, "--version"]);
 	if (!version.ok) {
-		throw new BacklogUnavailable(
+		throw new BacklogUnavailableError(
 			`Could not run \`${BINARY} --version\`. Install Backlog.md and make \`${BINARY}\` available on PATH.`,
 		);
 	}
 
 	const help = await run([BINARY, "browser", "--help"]);
 	if (!help.ok) {
-		throw new BacklogUnavailable(`Could not run \`${BINARY} browser --help\`.`);
+		throw new BacklogUnavailableError(
+			`Could not run \`${BINARY} browser --help\`.`,
+		);
 	}
 
 	const missing = REQUIRED_FLAGS.filter((flag) => !help.stdout.includes(flag));
 	if (missing.length > 0) {
-		throw new BacklogUnavailable(
+		throw new BacklogUnavailableError(
 			`\`${BINARY} browser\` (version ${version.stdout.trim()}) does not accept ${missing.join(" or ")}. ` +
 				`backlog-browser needs ${REQUIRED_FLAGS.join(" and ")} to run one server per project.`,
 		);

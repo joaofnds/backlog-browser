@@ -95,7 +95,7 @@ export class Supervisor {
 		try {
 			await this.spawn(entry, { reuse: true });
 		} catch (error) {
-			entry.activation = this.portFailure(entry, error);
+			entry.activation = portFailure(entry, error);
 
 			return entry.activation;
 		}
@@ -126,6 +126,8 @@ export class Supervisor {
 		}
 
 		const cutoff = this.now() - this.idleTimeoutMs;
+		// Copied, not iterated live: `discard` deletes from the very map being walked.
+		// oxlint-disable-next-line unicorn/no-useless-spread
 		for (const entry of [...this.entries.values()]) {
 			if (entry.lastUsedAt <= cutoff) {
 				this.discard(entry);
@@ -200,22 +202,13 @@ export class Supervisor {
 			try {
 				await this.spawn(entry, { reuse: false });
 			} catch (error) {
-				entry.activation = this.portFailure(entry, error);
+				entry.activation = portFailure(entry, error);
 				return;
 			}
 			return this.supervise(entry, attempt + 1);
 		}
 
 		entry.activation = this.failure(entry, child, outcome);
-	}
-
-	private portFailure(entry: Entry, cause: unknown): Activation {
-		const reason = cause instanceof Error ? cause.message : String(cause);
-
-		return {
-			status: "failed",
-			error: `Could not get a port for ${entry.project.name}: ${reason}`,
-		};
 	}
 
 	private failure(
@@ -249,13 +242,19 @@ export class Supervisor {
 	}
 
 	private watchForCollapse(entry: Entry, child: ChildProcess): void {
-		child.exited.then((code) => {
-			if (this.entries.get(entry.project.slug)?.child !== child) {
-				return;
-			}
+		void this.recordCollapse(entry, child);
+	}
 
-			entry.activation = this.failure(entry, child, { kind: "exited", code });
-		});
+	private async recordCollapse(
+		entry: Entry,
+		child: ChildProcess,
+	): Promise<void> {
+		const code = await child.exited;
+		if (this.entries.get(entry.project.slug)?.child !== child) {
+			return;
+		}
+
+		entry.activation = this.failure(entry, child, { kind: "exited", code });
 	}
 
 	private async waitForReady(
@@ -264,9 +263,9 @@ export class Supervisor {
 	): Promise<Outcome> {
 		const deadline = this.now() + this.readyTimeoutMs;
 		let exitCode: number | null = null;
-		child.exited.then((code) => {
-			exitCode = code;
-		});
+		void (async (): Promise<void> => {
+			exitCode = await child.exited;
+		})();
 
 		while (this.now() < deadline) {
 			if (await this.probe(port)) {
@@ -289,6 +288,15 @@ export class Supervisor {
 		this.entries.delete(entry.project.slug);
 		entry.child?.kill();
 	}
+}
+
+function portFailure(entry: Entry, cause: unknown): Activation {
+	const reason = cause instanceof Error ? cause.message : String(cause);
+
+	return {
+		status: "failed",
+		error: `Could not get a port for ${entry.project.name}: ${reason}`,
+	};
 }
 
 function failed(error: string, stderr: string): Activation {

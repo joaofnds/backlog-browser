@@ -6,7 +6,10 @@ import { stateFile } from "./json-store.ts";
 import { parseOptions, USAGE, UsageError, wantsHelp } from "./options.ts";
 import type { HubOptions } from "./options.ts";
 import { StateStore } from "./state/store.ts";
-import { BacklogUnavailable, locateBacklog } from "./supervisor/backlog-cli.ts";
+import {
+	BacklogUnavailableError,
+	locateBacklog,
+} from "./supervisor/backlog-cli.ts";
 import {
 	allocatePort,
 	backlogLauncher,
@@ -34,7 +37,7 @@ async function main(argv: string[]): Promise<void> {
 		backlog = await locateBacklog();
 	} catch (error) {
 		return die(
-			error instanceof BacklogUnavailable ? error.message : String(error),
+			error instanceof BacklogUnavailableError ? error.message : String(error),
 		);
 	}
 
@@ -82,21 +85,21 @@ function installShutdown(handlers: {
 }): void {
 	let stopping = false;
 
-	const onSignal = (signal: NodeJS.Signals) => {
-		process.on(signal, () => {
+	const onSignal = (signal: NodeJS.Signals): void => {
+		process.on(signal, async () => {
 			if (stopping) {
 				handlers.force();
 				process.exit(130);
 			}
 
 			stopping = true;
-			handlers.stop().then(
-				() => process.exit(0),
-				(error) => {
-					console.error(error);
-					process.exit(1);
-				},
-			);
+			try {
+				await handlers.stop();
+				process.exit(0);
+			} catch (error) {
+				console.error(error);
+				process.exit(1);
+			}
 		});
 	};
 
@@ -112,13 +115,19 @@ function installShutdown(handlers: {
 	process.on("exit", handlers.force);
 }
 
+function browserCommand(url: string): string[] {
+	if (process.platform === "darwin") {
+		return ["open", url];
+	}
+	if (process.platform === "win32") {
+		return ["cmd", "/c", "start", "", url];
+	}
+
+	return ["xdg-open", url];
+}
+
 function openBrowser(url: string): void {
-	const command =
-		process.platform === "darwin"
-			? ["open", url]
-			: process.platform === "win32"
-				? ["cmd", "/c", "start", "", url]
-				: ["xdg-open", url];
+	const command = browserCommand(url);
 
 	try {
 		Bun.spawn(command, {

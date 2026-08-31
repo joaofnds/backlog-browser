@@ -66,22 +66,22 @@ describe("parseOptions", () => {
 	describe("when a numeric flag is not a number", () => {
 		test("rejects naming the flag", () => {
 			expect(() => parseOptions(["--port", "http"])).toThrow(UsageError);
-			expect(() => parseOptions(["--port", "http"])).toThrow(/--port/);
+			expect(() => parseOptions(["--port", "http"])).toThrow(/--port/u);
 		});
 	});
 
 	describe("when a numeric flag is out of range", () => {
 		test("rejects a depth below one", () => {
-			expect(() => parseOptions(["--depth", "0"])).toThrow(/--depth/);
+			expect(() => parseOptions(["--depth", "0"])).toThrow(/--depth/u);
 		});
 
 		test("rejects a depth above the settings ceiling", () => {
-			expect(() => parseOptions(["--depth", "21"])).toThrow(/--depth/);
+			expect(() => parseOptions(["--depth", "21"])).toThrow(/--depth/u);
 		});
 
 		test("rejects a negative idle timeout", () => {
 			expect(() => parseOptions(["--idle-timeout", "-1"])).toThrow(
-				/--idle-timeout/,
+				/--idle-timeout/u,
 			);
 		});
 	});

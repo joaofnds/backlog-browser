@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import {
-	BacklogUnavailable,
+	BacklogUnavailableError,
 	locateBacklog,
 	spawnCommand,
 } from "./backlog-cli.ts";
@@ -39,7 +39,7 @@ describe("locateBacklog", () => {
 		test("rejects with the name it looked for", async () => {
 			const attempt = locateBacklog({ run: runnerFor({}) });
 
-			await expect(attempt).rejects.toBeInstanceOf(BacklogUnavailable);
+			await expect(attempt).rejects.toBeInstanceOf(BacklogUnavailableError);
 		});
 	});
 
@@ -53,7 +53,9 @@ describe("locateBacklog", () => {
 				},
 			});
 
-			await expect(locateBacklog({ run })).rejects.toThrow(/--non-interactive/);
+			await expect(locateBacklog({ run })).rejects.toThrow(
+				/--non-interactive/u,
+			);
 		});
 
 		test("rejects naming the version it found", async () => {
@@ -65,7 +67,7 @@ describe("locateBacklog", () => {
 				},
 			});
 
-			await expect(locateBacklog({ run })).rejects.toThrow(/2\.0\.0/);
+			await expect(locateBacklog({ run })).rejects.toThrow(/2\.0\.0/u);
 		});
 	});
 });

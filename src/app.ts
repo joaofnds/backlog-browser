@@ -14,7 +14,7 @@ export interface App {
 	readonly supervisor: Supervisor;
 	readonly registry: ProjectRegistry;
 	readonly store: StateStore;
-	stop(): Promise<void>;
+	stop: () => Promise<void>;
 }
 
 /**
