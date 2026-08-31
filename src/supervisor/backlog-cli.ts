@@ -47,11 +47,11 @@ export async function locateBacklog(
 
 /** A wrapper that hangs would otherwise hang startup with no output at all. */
 export async function spawnCommand(
-	command: string[],
+	command: readonly string[],
 	timeoutMs = PREFLIGHT_TIMEOUT_MS,
 ): Promise<{ readonly ok: boolean; readonly stdout: string }> {
 	try {
-		const child = Bun.spawn(command, {
+		const child = Bun.spawn([...command], {
 			stdout: "pipe",
 			stderr: "ignore",
 			timeout: timeoutMs,

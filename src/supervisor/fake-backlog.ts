@@ -91,7 +91,7 @@ export class FakeBacklog {
 		return port;
 	};
 
-	public occupy(...ports: number[]): void {
+	public occupy(...ports: readonly number[]): void {
 		this.kernel.occupy(...ports);
 	}
 

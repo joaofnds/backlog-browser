@@ -65,7 +65,16 @@ const storedRoot = z
 /** The schema a root of `state.json` is read against. */
 export const storedRootSchema = storedRoot;
 
-export type StoredRoot = z.infer<typeof storedRoot>;
+/** What the file recorded. Read, never written back through, so it is readonly throughout. */
+export interface StoredRoot {
+	readonly active: string | null;
+	readonly mode: "default" | "manual";
+	readonly order: readonly string[];
+	readonly hidden: readonly string[];
+	readonly added: readonly string[];
+	readonly ports: Readonly<Record<string, number>>;
+	readonly settings: { readonly depth: number | null };
+}
 
 /** What a root that was never written looks like, so a first run reads the same as an empty one. */
 export const EMPTY_ROOT: StoredRoot = {

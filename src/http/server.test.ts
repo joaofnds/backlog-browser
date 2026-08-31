@@ -25,7 +25,7 @@ async function addAndDiscover(name: string): Promise<string> {
 	return project.slug;
 }
 
-async function addProjects(...names: string[]): Promise<void> {
+async function addProjects(...names: readonly string[]): Promise<void> {
 	for (const name of names) {
 		await harness.addProject(name, name.toLowerCase());
 	}
@@ -37,7 +37,7 @@ function pathTo(name: string): string {
 }
 
 function pathsOf(
-	inventory: Inventory,
+	inventory: Readonly<Inventory>,
 	filter: { readonly hidden: boolean },
 ): string[] {
 	return inventory.projects
@@ -45,7 +45,7 @@ function pathsOf(
 		.map((project) => project.path);
 }
 
-function slugAt(inventory: Inventory, path: string): string {
+function slugAt(inventory: Readonly<Inventory>, path: string): string {
 	const slug = inventory.projects.find(
 		(project) => project.path === path,
 	)?.slug;

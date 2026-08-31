@@ -13,7 +13,7 @@ export class FakePortSpace {
 		return this.next;
 	};
 
-	public occupy(...ports: number[]): void {
+	public occupy(...ports: readonly number[]): void {
 		for (const port of ports) {
 			this.taken.add(port);
 		}

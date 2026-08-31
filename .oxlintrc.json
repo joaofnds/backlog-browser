@@ -18,8 +18,7 @@
 	},
 	"ignorePatterns": [
 		"dist",
-		"tools/oxlint/anti-slop/**",
-		"src/shell/shell.js"
+		"tools/oxlint/anti-slop/**"
 	],
 	"jsPlugins": [
 		{
@@ -79,7 +78,23 @@
 				"allow": [
 					"ZodType",
 					"BunFile",
-					"Subprocess"
+					"Subprocess",
+					"Response",
+					"Request",
+					"BunRequest",
+					"Supervisor",
+					"ProjectRegistry",
+					"StateStore",
+					"Entry",
+					"ChildProcess",
+					"ProjectList",
+					"App",
+					"FakeBacklog",
+					"FakeChooser",
+					"TestClock",
+					"HubHarness",
+					"HubDriver",
+					"ErrnoException"
 				]
 			}
 		],
@@ -116,7 +131,6 @@
 				"allowTypedFunctionExpressions": true,
 				"allowHigherOrderFunctions": true
 			}
-		],
-		"import/prefer-default-export": "off"
+		]
 	}
 }

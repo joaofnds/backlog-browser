@@ -24,13 +24,64 @@ export type Activation =
 			readonly stderr?: string;
 	  };
 
-interface Entry {
-	readonly project: Project;
-	child: ChildProcess | null;
-	port: number;
-	activation: Activation;
-	lastUsedAt: number;
-	settling: Promise<void>;
+/**
+ * One project's child and what the hub currently believes about it. The state changes as the child
+ * starts, answers or dies, so the transitions live here as named methods: callers ask the entry to
+ * move, and nothing outside writes its fields.
+ */
+class Entry {
+	public readonly project: Project;
+	private currentChild: ChildProcess | null = null;
+	private currentPort = 0;
+	private currentActivation: Activation = { status: "starting" };
+	private usedAt: number;
+	private settlingNow: Promise<void> = Promise.resolve();
+
+	public constructor(project: Project, at: number) {
+		this.project = project;
+		this.usedAt = at;
+	}
+
+	public get child(): ChildProcess | null {
+		return this.currentChild;
+	}
+
+	public get port(): number {
+		return this.currentPort;
+	}
+
+	public get activation(): Activation {
+		return this.currentActivation;
+	}
+
+	public get settling(): Promise<void> {
+		return this.settlingNow;
+	}
+
+	public idleSince(cutoff: number): boolean {
+		return this.usedAt <= cutoff;
+	}
+
+	public used(at: number): void {
+		this.usedAt = at;
+	}
+
+	public running(child: ChildProcess, port: number): void {
+		this.currentChild = child;
+		this.currentPort = port;
+	}
+
+	public abandoned(): void {
+		this.currentChild = null;
+	}
+
+	public settles(work: Promise<void>): void {
+		this.settlingNow = work;
+	}
+
+	public became(activation: Activation): void {
+		this.currentActivation = activation;
+	}
 }
 
 type Failure =
@@ -77,7 +128,7 @@ export class Supervisor {
 
 		const warm = this.entries.get(project.slug);
 		if (warm && warm.activation.status !== "failed") {
-			warm.lastUsedAt = this.now();
+			warm.used(this.now());
 
 			return warm.activation;
 		}
@@ -86,24 +137,17 @@ export class Supervisor {
 			this.discard(warm);
 		}
 
-		const entry: Entry = {
-			project,
-			child: null,
-			port: 0,
-			activation: { status: "starting" },
-			lastUsedAt: this.now(),
-			settling: Promise.resolve(),
-		};
+		const entry = new Entry(project, this.now());
 		this.entries.set(project.slug, entry);
 
 		try {
 			await this.spawn(entry, { reuse: true });
 		} catch (error) {
-			entry.activation = portFailure(entry, error);
+			entry.became(portFailure(entry, error));
 
 			return entry.activation;
 		}
-		entry.settling = this.supervise(entry, 1);
+		entry.settles(this.supervise(entry, 1));
 
 		return { status: "starting" };
 	}
@@ -116,7 +160,7 @@ export class Supervisor {
 	public touch(project: Project): void {
 		const entry = this.entries.get(project.slug);
 		if (entry) {
-			entry.lastUsedAt = this.now();
+			entry.used(this.now());
 		}
 	}
 
@@ -132,7 +176,7 @@ export class Supervisor {
 		const cutoff = this.now() - this.idleTimeoutMs;
 		// Copied, not iterated live: `discard` deletes from the very map being walked.
 		for (const entry of [...this.entries.values()]) {
-			if (entry.lastUsedAt <= cutoff) {
+			if (entry.idleSince(cutoff)) {
 				this.discard(entry);
 			}
 		}
@@ -175,12 +219,11 @@ export class Supervisor {
 			reuse: options.reuse,
 		});
 		if (this.stopped) {
-			entry.child = null;
+			entry.abandoned();
 			return;
 		}
 
-		entry.port = port;
-		entry.child = this.launch({ cwd: entry.project.path, port: entry.port });
+		entry.running(this.launch({ cwd: entry.project.path, port }), port);
 	}
 
 	private async supervise(entry: Entry, attempt: number): Promise<void> {
@@ -192,11 +235,11 @@ export class Supervisor {
 		const outcome = await this.waitForReady(child, entry.port);
 
 		if (outcome.kind === "ready") {
-			entry.activation = {
+			entry.became({
 				status: "ready",
 				port: entry.port,
 				url: urlFor(entry.port),
-			};
+			});
 			this.watchForCollapse(entry, child);
 			return;
 		}
@@ -205,13 +248,13 @@ export class Supervisor {
 			try {
 				await this.spawn(entry, { reuse: false });
 			} catch (error) {
-				entry.activation = portFailure(entry, error);
+				entry.became(portFailure(entry, error));
 				return;
 			}
 			return this.supervise(entry, attempt + 1);
 		}
 
-		entry.activation = this.failure(entry, child, outcome);
+		entry.became(this.failure(entry, child, outcome));
 	}
 
 	private failure(
@@ -257,7 +300,7 @@ export class Supervisor {
 			return;
 		}
 
-		entry.activation = this.failure(entry, child, { kind: "exited", code });
+		entry.became(this.failure(entry, child, { kind: "exited", code }));
 	}
 
 	private async waitForReady(

@@ -33,7 +33,7 @@ async function makePlainDirectory(relativePath: string): Promise<void> {
 	await Bun.write(join(root, relativePath, "README.md"), "placeholder\n");
 }
 
-function namesOf(projects: { readonly name: string }[]): string[] {
+function namesOf(projects: readonly { readonly name: string }[]): string[] {
 	return projects.map((project) => project.name);
 }
 

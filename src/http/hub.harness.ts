@@ -35,7 +35,7 @@ export class FakeChooser {
 	public choose = async ({
 		startAt,
 	}: {
-		startAt: string;
+		readonly startAt: string;
 	}): Promise<ChosenFolder> => {
 		this.openedAt.push(startAt);
 
@@ -157,18 +157,18 @@ export class HubHarness {
 }
 
 export interface ProjectSummary {
-	slug: string;
-	name: string;
-	path: string;
-	hidden: boolean;
-	added: boolean;
+	readonly slug: string;
+	readonly name: string;
+	readonly path: string;
+	readonly hidden: boolean;
+	readonly added: boolean;
 }
 export interface Inventory {
-	root: string;
-	depth: number;
-	active: string | null;
-	mode: "default" | "manual";
-	projects: ProjectSummary[];
+	readonly root: string;
+	readonly depth: number;
+	readonly active: string | null;
+	readonly mode: "default" | "manual";
+	readonly projects: readonly ProjectSummary[];
 }
 
 export class HubDriver {

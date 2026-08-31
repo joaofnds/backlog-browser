@@ -20,7 +20,7 @@ const READY_TIMEOUT_MS = 15_000;
 
 await main(Bun.argv.slice(2));
 
-async function main(argv: string[]): Promise<void> {
+async function main(argv: readonly string[]): Promise<void> {
 	if (wantsHelp(argv)) {
 		return console.log(USAGE);
 	}

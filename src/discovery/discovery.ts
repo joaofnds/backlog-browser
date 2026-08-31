@@ -21,16 +21,9 @@ export type ProjectFinder = (options: {
 }) => Promise<string[]>;
 
 export const findProjectPaths: ProjectFinder = async (options) => {
-	const found: string[] = [];
 	const from = resolve(options.root);
-	await collect(
-		await realpath(from).catch(() => from),
-		0,
-		options.depth,
-		found,
-	);
 
-	return found;
+	return collect(await realpath(from).catch(() => from), 0, options.depth);
 };
 
 export async function readProjects(
@@ -61,24 +54,26 @@ export async function readProject(path: string): Promise<Project | null> {
 	return new Project({ path: await realpath(path).catch(() => path), name });
 }
 
+/** The project directories at or under `directory`, not descending once one is found. */
 async function collect(
 	directory: string,
 	level: number,
 	maxDepth: number,
-	found: string[],
-): Promise<void> {
+): Promise<string[]> {
 	if ((await projectNameAt(directory)) !== null) {
-		found.push(directory);
-		return;
+		return [directory];
 	}
 
 	if (level >= maxDepth) {
-		return;
+		return [];
 	}
 
+	const found: string[] = [];
 	for (const entry of await childDirectories(directory)) {
-		await collect(join(directory, entry), level + 1, maxDepth, found);
+		found.push(...(await collect(join(directory, entry), level + 1, maxDepth)));
 	}
+
+	return found;
 }
 
 async function childDirectories(directory: string): Promise<string[]> {

@@ -17,7 +17,9 @@ Options:
 `;
 
 function runnerFor(
-	replies: Record<string, { readonly ok: boolean; readonly stdout: string }>,
+	replies: Readonly<
+		Record<string, { readonly ok: boolean; readonly stdout: string }>
+	>,
 ): CommandRunner {
 	return async (command) =>
 		replies[command.join(" ")] ?? { ok: false, stdout: "" };
