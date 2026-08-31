@@ -185,8 +185,18 @@ export class HubDriver {
 		return this.post("/api/choose-folder", {});
 	}
 
+	/** Adds a path and reads the inventory back, which is what most callers want from it. */
+	public adding(path: string): Promise<Inventory> {
+		return read<Inventory>(this.addPath(path));
+	}
+
 	public addPath(path: string): Promise<Response> {
 		return this.post("/api/list/added", { path, added: true });
+	}
+
+	/** Drops a path and reads the inventory back, the mirror of `adding`. */
+	public dropping(path: string): Promise<Inventory> {
+		return read<Inventory>(this.dropPath(path));
 	}
 
 	public dropPath(path: string): Promise<Response> {

@@ -125,20 +125,25 @@ describe("hub server", () => {
 		});
 
 		test("reports no remembered project on a fresh install", async () => {
-			expect((await driver.projects()).active).toBeNull();
+			const inventory = await driver.projects();
+
+			expect(inventory.active).toBeNull();
 		});
 
 		test("reports the project remembered by an earlier hub run", async () => {
 			await harness.store.remember("remembered-0badcafe");
 
-			expect((await driver.projects()).active).toEqual("remembered-0badcafe");
+			const inventory = await driver.projects();
+
+			expect(inventory.active).toEqual("remembered-0badcafe");
 		});
 
 		test("describes each project by slug, name and path", async () => {
 			const path = await harness.addProject("Alpha", "alpha");
 			await driver.refresh();
 
-			const [project] = (await driver.projects()).projects;
+			const inventory = await driver.projects();
+			const [project] = inventory.projects;
 
 			expect(project).toMatchObject({ name: "Alpha", path });
 			expect(project?.slug).toStartWith("alpha-");
@@ -216,9 +221,9 @@ describe("hub server", () => {
 			await driver.activate(slug);
 			await harness.supervisor.settled(harness.projectFor(slug));
 
-			expect(await (await driver.status(slug)).json()).toMatchObject({
-				status: "ready",
-			});
+			const response = await driver.status(slug);
+
+			expect(await response.json()).toMatchObject({ status: "ready" });
 		});
 	});
 
@@ -236,7 +241,9 @@ describe("hub server", () => {
 		test("misses a project below the depth the request names", async () => {
 			await harness.addProject("Buried", FOUR_LEVELS_DOWN);
 
-			expect((await driver.refresh(3)).projects).toEqual([]);
+			const inventory = await driver.refresh(3);
+
+			expect(inventory.projects).toEqual([]);
 		});
 
 		test("finds it once the request names a depth that reaches it", async () => {
@@ -250,11 +257,15 @@ describe("hub server", () => {
 		});
 
 		test("reports the depth it walked at", async () => {
-			expect((await driver.refresh(7)).depth).toBe(7);
+			const inventory = await driver.refresh(7);
+
+			expect(inventory.depth).toBe(7);
 		});
 
 		test("keeps the startup depth when the request names none", async () => {
-			expect((await driver.refresh()).depth).toBe(DEFAULTS.depth);
+			const inventory = await driver.refresh();
+
+			expect(inventory.depth).toBe(DEFAULTS.depth);
 		});
 
 		test("walks at the remembered depth on the next hub run", async () => {
@@ -263,18 +274,24 @@ describe("hub server", () => {
 			harness = await harness.restart();
 			driver = harness.driver();
 
-			expect((await driver.projects()).depth).toBe(7);
+			const inventory = await driver.projects();
+
+			expect(inventory.depth).toBe(7);
 		});
 
 		describe("when the depth is out of range", () => {
 			test("responds 400", async () => {
-				expect((await driver.refreshing(0)).status).toBe(400);
+				const response = await driver.refreshing(0);
+
+				expect(response.status).toBe(400);
 			});
 
 			test("leaves the depth alone", async () => {
 				await driver.refreshing(0);
 
-				expect((await driver.projects()).depth).toBe(DEFAULTS.depth);
+				const inventory = await driver.projects();
+
+				expect(inventory.depth).toBe(DEFAULTS.depth);
 			});
 		});
 	});
@@ -286,7 +303,9 @@ describe("hub server", () => {
 			harness = await harness.restart({ depth: 2 });
 			driver = harness.driver();
 
-			expect((await driver.projects()).depth).toBe(2);
+			const inventory = await driver.projects();
+
+			expect(inventory.depth).toBe(2);
 		});
 
 		test("serves the cached walk instead of walking again", async () => {
@@ -306,9 +325,11 @@ describe("hub server", () => {
 			harness = await harness.restart({ rescan: true });
 			driver = harness.driver();
 
-			expect(
-				(await driver.projects()).projects.map((project) => project.name),
-			).toEqual(["Latecomer"]);
+			const inventory = await driver.projects();
+
+			expect(inventory.projects.map((project) => project.name)).toEqual([
+				"Latecomer",
+			]);
 		});
 	});
 
@@ -322,7 +343,9 @@ describe("hub server", () => {
 		test("reports the folder the user chose", async () => {
 			harness.chooser.chooses(join(harness.root, "somewhere"));
 
-			expect(await (await driver.chooseFolder()).json()).toEqual({
+			const response = await driver.chooseFolder();
+
+			expect(await response.json()).toEqual({
 				kind: "chosen",
 				path: join(harness.root, "somewhere"),
 			});
@@ -331,16 +354,18 @@ describe("hub server", () => {
 		test("reports a dismissed chooser as cancelled", async () => {
 			harness.chooser.cancels();
 
-			expect(await (await driver.chooseFolder()).json()).toEqual({
-				kind: "cancelled",
-			});
+			const response = await driver.chooseFolder();
+
+			expect(await response.json()).toEqual({ kind: "cancelled" });
 		});
 
 		describe("when the chooser itself fails", () => {
 			test("responds 500 rather than calling the platform unsupported", async () => {
 				harness.chooser.fails("The chooser closed without answering.");
 
-				expect((await driver.chooseFolder()).status).toBe(500);
+				const response = await driver.chooseFolder();
+
+				expect(response.status).toBe(500);
 			});
 		});
 
@@ -362,9 +387,7 @@ describe("hub server", () => {
 		test("lists a project nested below the discovery depth", async () => {
 			const path = await harness.addProject("Buried", BELOW_DEFAULT_DEPTH);
 
-			const inventory = (await (
-				await driver.addPath(path)
-			).json()) as Inventory;
+			const inventory = await driver.adding(path);
 
 			expect(inventory.projects.map((project) => project.name)).toEqual([
 				"Buried",
@@ -389,9 +412,11 @@ describe("hub server", () => {
 			harness = await harness.restart();
 			driver = harness.driver();
 
-			expect(
-				(await driver.projects()).projects.map((project) => project.name),
-			).toEqual(["Buried"]);
+			const inventory = await driver.projects();
+
+			expect(inventory.projects.map((project) => project.name)).toEqual([
+				"Buried",
+			]);
 		});
 
 		test("lists it once when a later walk finds it too", async () => {
@@ -408,9 +433,7 @@ describe("hub server", () => {
 		test("marks it as added so the shell can offer to remove it", async () => {
 			const path = await harness.addProject("Buried", BELOW_DEFAULT_DEPTH);
 
-			const inventory = (await (
-				await driver.addPath(path)
-			).json()) as Inventory;
+			const inventory = await driver.adding(path);
 
 			expect(inventory.projects[0]).toMatchObject({ added: true });
 		});
@@ -430,7 +453,9 @@ describe("hub server", () => {
 		test("leaves a walked project unmarked", async () => {
 			await addProjects("Alpha");
 
-			expect((await driver.projects()).projects[0]).toMatchObject({
+			const inventory = await driver.projects();
+
+			expect(inventory.projects[0]).toMatchObject({
 				added: false,
 			});
 		});
@@ -439,16 +464,16 @@ describe("hub server", () => {
 			const path = await harness.addProject("Buried", BELOW_DEFAULT_DEPTH);
 			await driver.addPath(path);
 
-			const inventory = (await (
-				await driver.dropPath(path)
-			).json()) as Inventory;
+			const inventory = await driver.dropping(path);
 
 			expect(inventory.projects).toEqual([]);
 		});
 
 		describe("when the folder holds no board", () => {
 			test("responds 400", async () => {
-				expect((await driver.addPath(harness.root)).status).toBe(400);
+				const response = await driver.addPath(harness.root);
+
+				expect(response.status).toBe(400);
 			});
 
 			test("lists nothing new", async () => {
@@ -480,7 +505,9 @@ describe("hub server", () => {
 
 		describe("when the slug is unknown", () => {
 			test("responds 404", async () => {
-				expect((await driver.activate("ghost-00000000")).status).toBe(404);
+				const response = await driver.activate("ghost-00000000");
+
+				expect(response.status).toBe(404);
 			});
 		});
 	});
@@ -491,9 +518,8 @@ describe("hub server", () => {
 			await driver.activate(slug);
 			await readyUp(slug);
 
-			const activation = (await (await driver.status(slug)).json()) as {
-				url: string;
-			};
+			const response = await driver.status(slug);
+			const activation = (await response.json()) as { url: string };
 
 			expect(activation).toMatchObject({ status: "ready" });
 			expect(activation.url).toStartWith("http://127.0.0.1:");
@@ -502,14 +528,18 @@ describe("hub server", () => {
 		test("reports a project nobody activated as idle", async () => {
 			const slug = await addAndDiscover("Alpha");
 
-			expect(await (await driver.status(slug)).json()).toEqual({
+			const response = await driver.status(slug);
+
+			expect(await response.json()).toEqual({
 				status: "idle",
 			});
 		});
 
 		describe("when the slug is unknown", () => {
 			test("responds 404", async () => {
-				expect((await driver.status("ghost-00000000")).status).toBe(404);
+				const response = await driver.status("ghost-00000000");
+
+				expect(response.status).toBe(404);
 			});
 		});
 	});
@@ -563,7 +593,9 @@ describe("hub server", () => {
 
 			await driver.hide(pathTo("Alpha"));
 
-			expect((await driver.status(slug)).status).toBe(200);
+			const response = await driver.status(slug);
+
+			expect(response.status).toBe(200);
 		});
 
 		test("keeps the hidden project activatable", async () => {
@@ -572,7 +604,9 @@ describe("hub server", () => {
 
 			await driver.hide(pathTo("Alpha"));
 
-			expect((await driver.activate(slug)).status).toBe(200);
+			const response = await driver.activate(slug);
+
+			expect(response.status).toBe(200);
 		});
 
 		test("unhides the project again", async () => {
@@ -814,7 +848,8 @@ describe("hub server", () => {
 			await driver.addPath(path);
 			await driver.addPath(detour);
 
-			const listed = (await driver.projects()).projects.filter(
+			const inventory = await driver.projects();
+			const listed = inventory.projects.filter(
 				(project) => project.path === path || project.path === detour,
 			);
 			expect(listed).toHaveLength(1);
@@ -826,9 +861,11 @@ describe("hub server", () => {
 
 			await driver.dropPath(path);
 
-			expect(
-				(await driver.projects()).projects.map((project) => project.path),
-			).not.toContain(path);
+			const inventory = await driver.projects();
+
+			expect(inventory.projects.map((project) => project.path)).not.toContain(
+				path,
+			);
 		});
 
 		/** A link to a project folder is that folder, not a second board sitting beside it. */
@@ -840,7 +877,8 @@ describe("hub server", () => {
 			await driver.addPath(path);
 			await driver.addPath(link);
 
-			const listed = (await driver.projects()).projects.filter(
+			const inventory = await driver.projects();
+			const listed = inventory.projects.filter(
 				(project) => project.path === path || project.path === link,
 			);
 			expect(listed).toHaveLength(1);

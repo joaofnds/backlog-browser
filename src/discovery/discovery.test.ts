@@ -161,9 +161,10 @@ describe("project discovery", () => {
 			const link = join(root, "shortcut");
 			await symlink(path, link);
 
-			const [project] = await readProjects([link]);
+			const [throughLink] = await readProjects([link]);
+			const [direct] = await readProjects([path]);
 
-			expect(project?.path).toEqual((await readProjects([path]))[0]?.path);
+			expect(throughLink?.path).toEqual(direct?.path);
 		});
 
 		test("is discovered once when both spellings are given", async () => {
