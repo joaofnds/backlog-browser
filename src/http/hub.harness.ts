@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, realpath, rm } from "node:fs/promises";
 import { connect } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -51,7 +51,10 @@ export class HubHarness {
   static async start(
     options: { depth?: number; root?: string; rescan?: boolean; idleTimeoutMs?: number } = {},
   ): Promise<HubHarness> {
-    const root = options.root ?? (await mkdtemp(join(tmpdir(), "backlog-browser-")));
+    // Real path, not the `/var` symlink macOS hands back: a project is named by its real
+    // directory, so the root has to be one too for the two to compare equal.
+    const root =
+      options.root ?? (await realpath(await mkdtemp(join(tmpdir(), "backlog-browser-"))));
     const backlog = new FakeBacklog();
     const chooser = new FakeChooser();
     const clock = { now: 0 };

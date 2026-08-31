@@ -1,4 +1,4 @@
-import { readdir } from "node:fs/promises";
+import { readdir, realpath } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 
 import { fieldOf } from "../json.ts";
@@ -18,21 +18,32 @@ export type ProjectFinder = (options: { root: string; depth: number }) => Promis
 
 export const findProjectPaths: ProjectFinder = async (options) => {
   const found: string[] = [];
-  await collect(resolve(options.root), 0, options.depth, found);
+  const from = resolve(options.root);
+  await collect(await realpath(from).catch(() => from), 0, options.depth, found);
 
   return found;
 };
 
 export async function readProjects(paths: readonly string[]): Promise<Project[]> {
   const found = await Promise.all(paths.map(readProject));
+  const byPath = new Map<string, Project>();
+  for (const project of found) {
+    if (project !== null) byPath.set(project.path, project);
+  }
 
-  return found.filter((project) => project !== null).sort(Project.byName);
+  return [...byPath.values()].sort(Project.byName);
 }
 
+/**
+ * The path is followed to the directory it names, so a link and its target are one project. Both
+ * the walk and the paths the user adds by hand arrive here, which is what keeps them agreeing:
+ * a project is named by its real directory, whichever spelling reached us.
+ */
 export async function readProject(path: string): Promise<Project | null> {
   const name = await projectNameAt(path);
+  if (name === null) return null;
 
-  return name === null ? null : new Project({ path, name });
+  return new Project({ path: await realpath(path).catch(() => path), name });
 }
 
 async function collect(

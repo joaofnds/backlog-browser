@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { symlink } from "node:fs/promises";
 import { join } from "node:path";
 
 import { DEFAULTS } from "../options.ts";
@@ -730,6 +731,21 @@ describe("hub server", () => {
       await driver.dropPath(path);
 
       expect((await driver.projects()).projects.map((project) => project.path)).not.toContain(path);
+    });
+
+    /** A link to a project folder is that folder, not a second board sitting beside it. */
+    test("adds a symlinked directory once", async () => {
+      const path = await harness.addProject("Outside", "outside");
+      const link = join(harness.root, "shortcut");
+      await symlink(path, link);
+
+      await driver.addPath(path);
+      await driver.addPath(link);
+
+      const listed = (await driver.projects()).projects.filter(
+        (project) => project.path === path || project.path === link,
+      );
+      expect(listed).toHaveLength(1);
     });
   });
 });

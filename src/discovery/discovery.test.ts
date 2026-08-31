@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, realpath, rm, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -8,7 +8,9 @@ import { findProjectPaths, readProjects } from "./discovery.ts";
 let root: string;
 
 beforeEach(async () => {
-  root = await mkdtemp(join(tmpdir(), "backlog-browser-discovery-"));
+  // The temporary directory is itself under a symlink on macOS, and a project is named by its
+  // real path, so the root has to be the real one for the two to compare equal.
+  root = await realpath(await mkdtemp(join(tmpdir(), "backlog-browser-discovery-")));
 });
 
 afterEach(async () => {
@@ -138,6 +140,32 @@ describe("project discovery", () => {
       const projects = await discover();
 
       expect(namesOf(projects)).toEqual(["broken-dir"]);
+    });
+  });
+
+  /**
+   * A link to a project folder is that folder. The walk and the add route both name a project by
+   * its path, so they have to agree on which path that is, whichever spelling reached them.
+   */
+  describe("a project reached through a symlink", () => {
+    test("is the project it links to", async () => {
+      const path = await makeProject("real");
+      const link = join(root, "shortcut");
+      await symlink(path, link);
+
+      const [project] = await readProjects([link]);
+
+      expect(project?.path).toEqual((await readProjects([path]))[0]?.path);
+    });
+
+    test("is discovered once when both spellings are given", async () => {
+      const path = await makeProject("real");
+      const link = join(root, "shortcut");
+      await symlink(path, link);
+
+      const projects = await readProjects([path, link]);
+
+      expect(projects).toHaveLength(1);
     });
   });
 });
