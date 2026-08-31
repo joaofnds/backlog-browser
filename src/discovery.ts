@@ -37,7 +37,9 @@ export async function readProjects(
 		}
 	}
 
-	return [...byPath.values()].toSorted(Project.byName);
+	return [...byPath.values()].toSorted((left, right) =>
+		Project.byName(left, right),
+	);
 }
 
 /**

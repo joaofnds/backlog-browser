@@ -4,7 +4,7 @@ import { allocatePort, LOOPBACK } from "./child.ts";
 
 let squatter: Bun.Server<undefined> | null = null;
 
-async function occupy(port: number): Promise<void> {
+function occupy(port: number): void {
 	squatter = Bun.serve({
 		hostname: LOOPBACK,
 		port,
@@ -33,7 +33,7 @@ describe("allocatePort", () => {
 
 	test("falls back to a fresh port when the preferred one is taken", async () => {
 		const preferred = await allocatePort();
-		await occupy(preferred);
+		occupy(preferred);
 
 		expect(await allocatePort(preferred)).not.toEqual(preferred);
 	});

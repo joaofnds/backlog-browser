@@ -64,17 +64,19 @@ export class FakeBacklog {
 		this.children.push(child);
 
 		if (this.kernel.isTaken(spec.port)) {
-			queueMicrotask(() =>
-				child.crash(`error: EADDRINUSE: port ${spec.port} is in use`),
-			);
+			queueMicrotask(() => {
+				child.crash(`error: EADDRINUSE: port ${spec.port} is in use`);
+			});
 		}
 
 		return child;
 	};
 
-	public probe: ReadinessProbe = async (port) =>
-		this.listening.has(port) ||
-		(this.everyPortListens && !this.kernel.isTaken(port));
+	public probe: ReadinessProbe = (port) =>
+		Promise.resolve(
+			this.listening.has(port) ||
+				(this.everyPortListens && !this.kernel.isTaken(port)),
+		);
 
 	public allocatePort = this.kernel.allocate;
 

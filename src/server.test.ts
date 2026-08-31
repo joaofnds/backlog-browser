@@ -49,7 +49,7 @@ function slugAt(inventory: Readonly<Inventory>, path: string): string {
 	const slug = inventory.projects.find(
 		(project) => project.path === path,
 	)?.slug;
-	if (!slug) {
+	if (slug === undefined || slug === "") {
 		throw new Error(`no listed project at ${path}`);
 	}
 

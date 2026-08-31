@@ -86,7 +86,7 @@ export class StateStore {
 	private update(
 		change: (current: RootState) => RootState,
 	): Promise<RootState> {
-		return this.writes.add(async () => this.apply(change));
+		return this.writes.add(() => this.apply(change));
 	}
 
 	private async apply(

@@ -45,7 +45,7 @@ describe("Project", () => {
 			const sorted = [
 				projectAt("/a", "banana"),
 				projectAt("/b", "Apple"),
-			].toSorted(Project.byName);
+			].toSorted((left, right) => Project.byName(left, right));
 
 			expect(sorted.map((project) => project.name)).toEqual([
 				"Apple",

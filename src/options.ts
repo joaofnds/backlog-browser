@@ -56,8 +56,8 @@ export function parseOptions(argv: readonly string[]): HubOptions {
 				DEFAULTS.idleTimeoutMinutes,
 				0,
 			) * 60_000,
-		rescan: values.rescan === true,
-		open: values.open !== false,
+		rescan: values.rescan,
+		open: values.open,
 	};
 }
 

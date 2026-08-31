@@ -3,14 +3,14 @@ export class FakePortSpace {
 	private readonly taken = new Set<number>();
 	private next = 40_000;
 
-	public allocate = async (preferred = 0): Promise<number> => {
+	public allocate = (preferred = 0): Promise<number> => {
 		if (preferred !== 0 && !this.taken.has(preferred)) {
-			return preferred;
+			return Promise.resolve(preferred);
 		}
 
 		this.next += 1;
 
-		return this.next;
+		return Promise.resolve(this.next);
 	};
 
 	public occupy(...ports: readonly number[]): void {

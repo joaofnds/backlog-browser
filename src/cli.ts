@@ -15,7 +15,9 @@ await main(Bun.argv.slice(2));
 
 async function main(argv: readonly string[]): Promise<void> {
 	if (wantsHelp(argv)) {
-		return console.log(USAGE);
+		console.log(USAGE);
+
+		return;
 	}
 
 	let options: HubOptions;
@@ -56,7 +58,9 @@ async function main(argv: readonly string[]): Promise<void> {
 
 	installShutdown({
 		stop: app.stop,
-		force: () => app.supervisor.terminate(),
+		force: () => {
+			app.supervisor.terminate();
+		},
 	});
 
 	announce(app, options.root);

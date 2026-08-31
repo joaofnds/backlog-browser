@@ -76,7 +76,9 @@ export async function startApp(
 		port: options.port,
 	});
 
-	const sweep = setInterval(() => supervisor.stopIdle(), IDLE_SWEEP_MS);
+	const sweep = setInterval(() => {
+		supervisor.stopIdle();
+	}, IDLE_SWEEP_MS);
 	sweep.unref?.();
 
 	return {

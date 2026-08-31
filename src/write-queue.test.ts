@@ -22,7 +22,7 @@ describe("WriteQueue", () => {
 	test("runs the work and answers with its result", async () => {
 		const queue = new WriteQueue();
 
-		expect(await queue.add(async () => "written")).toBe("written");
+		expect(await queue.add(() => Promise.resolve("written"))).toBe("written");
 	});
 
 	test("loses no update when writers overlap", async () => {
@@ -47,9 +47,9 @@ describe("WriteQueue", () => {
 		};
 
 		await Promise.all([
-			queue.add(async () => record("first")),
-			queue.add(async () => record("second")),
-			queue.add(async () => record("third")),
+			queue.add(() => record("first")),
+			queue.add(() => record("second")),
+			queue.add(() => record("third")),
 		]);
 
 		expect(order).toEqual(["first", "second", "third"]);
@@ -60,9 +60,7 @@ describe("WriteQueue", () => {
 		const queue = new WriteQueue();
 		const state = counter();
 
-		const failed = queue.add(async () => {
-			throw new Error("disk full");
-		});
+		const failed = queue.add(() => Promise.reject(new Error("disk full")));
 
 		await expect(failed).rejects.toThrow("disk full");
 		await queue.add(state.increment);

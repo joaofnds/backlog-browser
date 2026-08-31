@@ -21,8 +21,8 @@ function runnerFor(
 		Record<string, { readonly ok: boolean; readonly stdout: string }>
 	>,
 ): CommandRunner {
-	return async (command) =>
-		replies[command.join(" ")] ?? { ok: false, stdout: "" };
+	return (command) =>
+		Promise.resolve(replies[command.join(" ")] ?? { ok: false, stdout: "" });
 }
 
 const workingBacklog = runnerFor({

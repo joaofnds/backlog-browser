@@ -13,8 +13,6 @@ const scanSchema = z.object({
 	paths: z.array(z.string()),
 });
 
-type CachedScan = z.infer<typeof scanSchema>;
-
 export class ProjectRegistry {
 	public readonly root: string;
 	private currentDepth: number;
@@ -81,7 +79,7 @@ export class ProjectRegistry {
 		return [
 			...this.discovered,
 			...this.adopted.filter((project) => !known.has(project.path)),
-		].toSorted(Project.byName);
+		].toSorted((left, right) => Project.byName(left, right));
 	}
 
 	public find(slug: string): Project | undefined {

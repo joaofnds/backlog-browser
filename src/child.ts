@@ -25,10 +25,6 @@ export function isPortCollision(stderr: string): boolean {
 	return /EADDRINUSE|address already in use/iu.test(stderr);
 }
 
-export function backlogLauncher(binary: string): ChildLauncher {
-	return (spec) => new BacklogChild(binary, spec);
-}
-
 class BacklogChild implements ChildProcess {
 	private readonly process: Bun.Subprocess<"ignore", "ignore", "pipe">;
 	private readonly chunks: string[] = [];
@@ -77,10 +73,9 @@ class BacklogChild implements ChildProcess {
 		}
 
 		this.signalGroup("SIGTERM");
-		this.escalation = setTimeout(
-			() => this.signalGroup("SIGKILL"),
-			KILL_GRACE_MS,
-		);
+		this.escalation = setTimeout(() => {
+			this.signalGroup("SIGKILL");
+		}, KILL_GRACE_MS);
 		this.escalation.unref?.();
 	}
 
@@ -139,6 +134,10 @@ class BacklogChild implements ChildProcess {
 			return;
 		}
 	}
+}
+
+export function backlogLauncher(binary: string): ChildLauncher {
+	return (spec) => new BacklogChild(binary, spec);
 }
 
 export const probeBacklogConfig: ReadinessProbe = async (port) => {
