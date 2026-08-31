@@ -4,7 +4,7 @@ import { join } from "node:path";
 
 import { DEFAULTS } from "./options.ts";
 import { HubHarness } from "./hub.harness.ts";
-import type { HubDriver, Inventory } from "./hub.harness.ts";
+import type { HubDriver, Inventory } from "./hub.driver.ts";
 
 const FOUR_LEVELS_DOWN = join("a", "b", "c", "d");
 const BELOW_DEFAULT_DEPTH = join("a", "b", "c", "d", "e", "f");
