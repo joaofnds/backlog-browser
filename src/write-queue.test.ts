@@ -2,8 +2,13 @@ import { describe, expect, test } from "bun:test";
 
 import { WriteQueue } from "./write-queue.ts";
 
+interface Counter {
+	readonly value: number;
+	readonly increment: () => Promise<void>;
+}
+
 /** A read-modify-write that yields between the read and the write, as a real one does. */
-function counter(): { value: number; increment: () => Promise<void> } {
+function counter(): Counter {
 	const state = { value: 0 };
 
 	return {

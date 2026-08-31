@@ -13,13 +13,28 @@ export class WriteQueue {
 	private tail: Promise<unknown> = Promise.resolve();
 
 	public add<T>(work: () => Promise<T>): Promise<T> {
-		// oxlint-disable-next-line promise/prefer-await-to-then -- see the note above
-		const done = this.tail.then(work);
-
-		// A rejection is the caller's to handle; the queue only needs to keep moving.
-		// oxlint-disable-next-line promise/prefer-await-to-then, eslint/no-empty-function
-		this.tail = done.catch(() => {});
+		const done = after(this.tail, work);
+		this.tail = settled(done);
 
 		return done;
+	}
+}
+
+/** Runs `work` once `waitingOn` has finished, however it finished. */
+async function after<T>(
+	waitingOn: Promise<unknown>,
+	work: () => Promise<T>,
+): Promise<T> {
+	await settled(waitingOn);
+
+	return work();
+}
+
+/** Waits for a promise and swallows its rejection: the queue only needs to know it is over. */
+async function settled(promise: Promise<unknown>): Promise<void> {
+	try {
+		await promise;
+	} catch {
+		// A rejection belongs to whoever asked for the work, not to the queue.
 	}
 }

@@ -82,21 +82,26 @@ function installShutdown(handlers: {
 }): void {
 	let stopping = false;
 
-	const onSignal = (signal: NodeJS.Signals): void => {
-		process.on(signal, async () => {
-			if (stopping) {
-				handlers.force();
-				process.exit(130);
-			}
+	/** A second signal does not wait: the first one is already stopping and may be stuck. */
+	const shutDown = async (): Promise<never> => {
+		if (stopping) {
+			handlers.force();
+			process.exit(130);
+		}
 
-			stopping = true;
-			try {
-				await handlers.stop();
-				process.exit(0);
-			} catch (error) {
-				console.error(error);
-				process.exit(1);
-			}
+		stopping = true;
+		try {
+			await handlers.stop();
+			process.exit(0);
+		} catch (error) {
+			console.error(error);
+			process.exit(1);
+		}
+	};
+
+	const onSignal = (signal: NodeJS.Signals): void => {
+		process.on(signal, () => {
+			void shutDown();
 		});
 	};
 

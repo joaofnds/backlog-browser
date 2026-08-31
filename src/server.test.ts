@@ -37,7 +37,7 @@ function pathTo(name: string): string {
 }
 
 function pathsOf(
-	inventory: Readonly<Inventory>,
+	inventory: Inventory,
 	filter: { readonly hidden: boolean },
 ): string[] {
 	return inventory.projects
@@ -45,7 +45,7 @@ function pathsOf(
 		.map((project) => project.path);
 }
 
-function slugAt(inventory: Readonly<Inventory>, path: string): string {
+function slugAt(inventory: Inventory, path: string): string {
 	const slug = inventory.projects.find(
 		(project) => project.path === path,
 	)?.slug;

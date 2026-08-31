@@ -163,20 +163,26 @@ The hub does not adopt a server left over from a previous run; it starts its own
 mise install      # bun, backlog.md and gitleaks, pinned in mise.toml
 bun install
 bun test
-bun run check     # oxfmt, all three tsconfigs, tests
-bun run lint      # oxlint; see below, this does not pass yet
+bun run check     # oxfmt, oxlint, all three tsconfigs, tests
 bun run scan      # gitleaks over the working tree and every commit
 bun run build     # single binary into dist/
 ```
 
 Formatting is [oxfmt](https://oxc.rs) and linting is [oxlint](https://oxc.rs), with every rule
-category an error and a set of vendored rules under `tools/oxlint/` on top. `bun run lint:types`
-adds the rules that need type information.
+category an error and a set of vendored rules under `tools/oxlint/` on top. `check` runs the
+type-aware pass, which is the whole of it.
 
-`lint` does not pass yet, so `check` does not run it: about a hundred findings remain, and they are
-tracked on the board rather than silenced. Most sit on one seam, where stored JSON and request
-bodies are narrowed by hand instead of parsed against a schema. Fixing that seam clears the bulk of
-them.
+No file, line or block is exempted, and no source file carries a disable comment. Four rules are
+scoped to one file each in `.oxlintrc.json`, each where a rule and the code disagree for a reason
+worth recording:
+
+- `no-process-env`, for the one module whose job is reading the environment.
+- `import/unambiguous`, for the declaration file that types Bun's text imports. Making it a module
+  is what the rule asks for, and that stops its wildcard declarations applying at all.
+- `import/default`, for the file that uses those imports. They are what embeds the shell into the
+  compiled binary; reading the files at request time instead leaves the binary serving nothing.
+- `no-known-value-widening`, for the route table. Another rule requires the return type it objects
+  to, and the type it objects to is what keeps a path's `:slug` typed in the handler serving it.
 
 The hub answers only requests carrying its own `Origin` and `Host`. It is a long-lived server on a
 known loopback port, so without those checks any page the user visited could drive it: change the

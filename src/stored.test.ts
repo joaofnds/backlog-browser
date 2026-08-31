@@ -1,11 +1,12 @@
 import { describe, expect, test } from "bun:test";
 
+import type { Json } from "./json.ts";
 import { SETTING_BOUNDS } from "./settings.ts";
 import { storedRootSchema } from "./stored.ts";
 import type { StoredRoot } from "./stored.ts";
 
 /** What the schema makes of one root's body, or nothing when it will not have it. */
-function read(body: unknown): StoredRoot | undefined {
+function read(body: Json): StoredRoot | undefined {
 	const parsed = storedRootSchema.safeParse(body);
 
 	return parsed.success ? parsed.data : undefined;

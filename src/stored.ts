@@ -17,11 +17,15 @@ function orElse<T>(schema: z.ZodType<T>, fallback: T): z.ZodType<T> {
 
 const port = z.number().int().min(LOWEST_PORT).max(HIGHEST_PORT);
 
+/**
+ * The entries that are paths, with the rest dropped. One bad entry in a list is not a reason to
+ * forget the list, so each is parsed on its own and the failures fall out.
+ */
 const paths = orElse(
 	z
 		.array(z.unknown())
 		.transform((entries) =>
-			entries.filter((entry) => typeof entry === "string"),
+			entries.flatMap((entry) => z.string().safeParse(entry).data ?? []),
 		),
 	[],
 );

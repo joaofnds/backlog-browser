@@ -36,7 +36,9 @@ hub.on("error", onSpawnError);
 /** @type {NodeJS.Signals[]} */
 const forwarded = ["SIGINT", "SIGTERM", "SIGHUP"];
 for (const signal of forwarded) {
-	process.on(signal, () => hub.kill(signal));
+	process.on(signal, () => {
+		hub.kill(signal);
+	});
 }
 
 hub.on("exit", (status, signal) => {

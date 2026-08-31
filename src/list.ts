@@ -8,6 +8,14 @@ export interface ListedProject {
 	readonly hidden: boolean;
 }
 
+/** What a list looks like in the state file, which the schema reads back. */
+export interface StoredList {
+	readonly mode: OrderMode;
+	readonly order: readonly string[];
+	readonly hidden: readonly string[];
+	readonly added: readonly string[];
+}
+
 export class ProjectList {
 	public readonly mode: OrderMode;
 	public readonly order: readonly string[];
@@ -137,12 +145,7 @@ export class ProjectList {
 		});
 	}
 
-	public toJSON(): {
-		mode: OrderMode;
-		order: readonly string[];
-		hidden: readonly string[];
-		added: readonly string[];
-	} {
+	public toJSON(): StoredList {
 		return {
 			mode: this.mode,
 			order: this.order,

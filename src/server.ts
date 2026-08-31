@@ -2,8 +2,7 @@ import type { z } from "zod";
 
 import type { FolderChooser } from "./choose-folder.ts";
 import { readProject } from "./discovery.ts";
-import type { Inventory, ProjectSummary } from "./inventory.ts";
-import type { Json } from "./json.ts";
+import type { Answer, Inventory, ProjectSummary } from "./inventory.ts";
 import type { ProjectRegistry } from "./registry.ts";
 import type { ListedProject } from "./list.ts";
 import shellHtml from "./shell/index.html" with { type: "text" };
@@ -169,7 +168,15 @@ type Handler<Path extends string> = (
 ) => Response | Promise<Response>;
 type RouteValue<Path extends string> =
 	| Handler<Path>
-	| Record<string, Handler<Path>>;
+	| Readonly<Record<string, Handler<Path>>>;
+/**
+ * The routes a hub serves, each under the path it is declared at. A mapped type rather than an
+ * index signature, because that is what keeps `:slug` typed in the handler that serves it.
+ *
+ * `guarded` has to declare it as its return type, which two rules disagree about: one asks every
+ * function for a return type, the other reads a generic alias over a mapped type as a widening.
+ * The alias is what makes the routes correct, so `no-known-value-widening` is off for this file.
+ */
 type Routes<Paths extends string> = { [Path in Paths]: RouteValue<Path> };
 
 /**
@@ -223,21 +230,28 @@ function guarded<Paths extends string>(
 	const guard = <Path extends Paths>(
 		route: RouteValue<Path>,
 	): RouteValue<Path> =>
-		typeof route === "function"
-			? wrap(route)
-			: Object.fromEntries(
+		isByMethod(route)
+			? Object.fromEntries(
 					Object.entries(route).map(([method, handler]) => [
 						method,
 						wrap(handler),
 					]),
-				);
+				)
+			: wrap(route);
 
-	const wrapped: Routes<Paths> = { ...routes };
+	const wrapped = { ...routes };
 	for (const path of keysOf(wrapped)) {
 		wrapped[path] = guard(wrapped[path]);
 	}
 
 	return wrapped;
+}
+
+/** A route that names a handler per method, as against one handler for every method. */
+function isByMethod<Path extends string>(
+	route: RouteValue<Path>,
+): route is Record<string, Handler<Path>> {
+	return Object.getPrototypeOf(route) === Object.prototype;
 }
 
 /**
@@ -356,9 +370,9 @@ function noStore(response: Response): Response {
 }
 
 /**
- * A route's answer on the wire. Anything a route hands over has to survive serialisation, which
- * is what `Json` states; the route's own shape is declared where the route is.
+ * A route's answer on the wire. The shape is the route's own, declared where the route is, and
+ * `Response.json` is what turns it into bytes.
  */
-function json(body: Json, status = 200): Response {
+function json(body: Answer, status = 200): Response {
 	return Response.json(body, { status });
 }
