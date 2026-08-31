@@ -1,12 +1,5 @@
 import { z } from "zod";
 
-/*
- * `.catch` here is zod's, not a promise's: it is the value a field falls back to when the stored
- * one does not fit. `prefault` is the nearest alternative and is not the same, it rejects a
- * wrong-typed value rather than replacing it, which is the tolerance these files exist to provide.
- */
-/* oxlint-disable promise/prefer-await-to-then */
-
 import { SETTING_BOUNDS } from "./settings.ts";
 
 const LOWEST_PORT = 1;
@@ -15,48 +8,56 @@ const HIGHEST_PORT = 65_535;
 /**
  * The state file is written by older versions of this tool and edited by hand, so every field is
  * read as "what an earlier run may have left" rather than as a promise. A value that does not fit
- * falls back to the empty answer for its field: losing a remembered preference is a smaller harm
- * than refusing to start.
- *
- * `catch` is what expresses that per field, so one bad entry does not discard the rest.
+ * falls back to the empty answer for its field, and one bad entry does not discard the rest:
+ * losing a remembered preference is a smaller harm than refusing to start.
  */
+function orElse<T>(schema: z.ZodType<T>, fallback: T): z.ZodType<T> {
+	return z.union([schema, z.unknown().transform(() => fallback)]);
+}
+
 const port = z.number().int().min(LOWEST_PORT).max(HIGHEST_PORT);
 
-const paths = z
-	.array(z.unknown())
-	.transform((entries) => entries.filter((entry) => typeof entry === "string"))
-	.catch([]);
+const paths = orElse(
+	z
+		.array(z.unknown())
+		.transform((entries) =>
+			entries.filter((entry) => typeof entry === "string"),
+		),
+	[],
+);
+
+const ports = orElse(
+	z.record(z.string(), z.unknown()).transform((entries) =>
+		Object.fromEntries(
+			Object.entries(entries).flatMap(([path, value]) => {
+				const kept = port.safeParse(value);
+
+				return kept.success ? [[path, kept.data] as const] : [];
+			}),
+		),
+	),
+	{},
+);
+
+const depth = orElse(
+	z
+		.number()
+		.int()
+		.min(SETTING_BOUNDS.depth.minimum)
+		.max(SETTING_BOUNDS.depth.maximum)
+		.nullable(),
+	null,
+);
 
 const storedRoot = z
 	.object({
-		active: z.string().min(1).nullable().catch(null),
-		mode: z.enum(["default", "manual"]).catch("default"),
+		active: orElse(z.string().min(1).nullable(), null),
+		mode: orElse(z.enum(["default", "manual"]), "default"),
 		order: paths,
 		hidden: paths,
 		added: paths,
-		ports: z
-			.record(z.string(), z.unknown())
-			.transform((entries) =>
-				Object.fromEntries(
-					Object.entries(entries).flatMap(([path, value]) => {
-						const kept = port.safeParse(value);
-
-						return kept.success ? [[path, kept.data] as const] : [];
-					}),
-				),
-			)
-			.catch({}),
-		settings: z
-			.object({
-				depth: z
-					.number()
-					.int()
-					.min(SETTING_BOUNDS.depth.minimum)
-					.max(SETTING_BOUNDS.depth.maximum)
-					.nullable()
-					.catch(null),
-			})
-			.catch({ depth: null }),
+		ports,
+		settings: orElse(z.object({ depth }), { depth: null }),
 	})
 	.partial()
 	.transform((stored) => ({

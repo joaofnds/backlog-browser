@@ -5,15 +5,11 @@ import { z } from "zod";
 
 import { stateHome } from "./environment.ts";
 
-/*
- * `.catch` here is zod's, not a promise's: it is the value a field falls back to when the stored
- * one does not fit. `prefault` is the nearest alternative and is not the same, it rejects a
- * wrong-typed value rather than replacing it, which is the tolerance these files exist to provide.
- */
-/* oxlint-disable promise/prefer-await-to-then */
-
 const rootsEnvelope = z.object({
-	roots: z.record(z.string(), z.unknown()).catch({}),
+	roots: z.union([
+		z.record(z.string(), z.unknown()),
+		z.unknown().transform(() => ({})),
+	]),
 });
 
 export function stateFile(name: string): string {
