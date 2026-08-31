@@ -521,11 +521,13 @@ describe("hub server", () => {
 			await driver.activate(slug);
 			await readyUp(slug);
 
-			const response = await driver.status(slug);
-			const activation = (await response.json()) as { url: string };
+			const activation = await driver.reported(slug);
 
 			expect(activation).toMatchObject({ status: "ready" });
-			expect(activation.url).toStartWith("http://127.0.0.1:");
+			expect(activation).toHaveProperty(
+				"url",
+				expect.stringContaining("http://127.0.0.1:"),
+			);
 		});
 
 		test("reports a project nobody activated as idle", async () => {

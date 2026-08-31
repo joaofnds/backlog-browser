@@ -89,7 +89,9 @@ function read(argv: readonly string[]): ParsedArgs {
 			},
 		});
 	} catch (error) {
-		throw new UsageError(`${(error as Error).message}\n\n${USAGE}`);
+		const reason = error instanceof Error ? error.message : String(error);
+
+		throw new UsageError(`${reason}\n\n${USAGE}`);
 	}
 }
 

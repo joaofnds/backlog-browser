@@ -1,5 +1,7 @@
 import { mkdtemp, realpath, rm } from "node:fs/promises";
 import { connect } from "node:net";
+
+import { z } from "zod";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -48,20 +50,48 @@ interface TestClock {
 	now: number;
 }
 
-export interface ProjectSummary {
-	readonly slug: string;
-	readonly name: string;
-	readonly path: string;
-	readonly hidden: boolean;
-	readonly added: boolean;
-}
-export interface Inventory {
-	readonly root: string;
-	readonly depth: number;
-	readonly active: string | null;
-	readonly mode: "default" | "manual";
-	readonly projects: readonly ProjectSummary[];
-}
+/**
+ * The shapes the hub answers with. The tests parse against these rather than asserting, so a
+ * response that drifts fails in the driver, naming the field, instead of somewhere downstream.
+ */
+const projectSummary = z.object({
+	slug: z.string(),
+	name: z.string(),
+	path: z.string(),
+	hidden: z.boolean(),
+	added: z.boolean(),
+});
+
+export type ProjectSummary = z.infer<typeof projectSummary>;
+const inventory = z.object({
+	root: z.string(),
+	depth: z.number(),
+	active: z.string().nullable(),
+	mode: z.enum(["default", "manual"]),
+	projects: z.array(projectSummary),
+});
+
+export type Inventory = z.infer<typeof inventory>;
+
+const statuses = z.record(z.string(), z.string());
+
+/** What `/api/projects/:slug` answers: the shape depends on how far the child got. */
+const activation = z.discriminatedUnion("status", [
+	z.object({ status: z.literal("idle") }),
+	z.object({ status: z.literal("starting") }),
+	z.object({
+		status: z.literal("ready"),
+		port: z.number(),
+		url: z.string(),
+	}),
+	z.object({
+		status: z.literal("failed"),
+		error: z.string(),
+		stderr: z.string().optional(),
+	}),
+]);
+
+export type ActivationReport = z.infer<typeof activation>;
 
 export class HubDriver {
 	public constructor(public readonly origin: string) {}
@@ -71,11 +101,11 @@ export class HubDriver {
 	}
 
 	public projects(): Promise<Inventory> {
-		return read<Inventory>(this.get("/api/projects"));
+		return read(inventory, this.get("/api/projects"));
 	}
 
 	public refresh(depth?: number): Promise<Inventory> {
-		return read<Inventory>(this.refreshing(depth));
+		return read(inventory, this.refreshing(depth));
 	}
 
 	public refreshing(depth?: number): Promise<Response> {
@@ -88,7 +118,7 @@ export class HubDriver {
 
 	/** Adds a path and reads the inventory back, which is what most callers want from it. */
 	public adding(path: string): Promise<Inventory> {
-		return read<Inventory>(this.addPath(path));
+		return read(inventory, this.addPath(path));
 	}
 
 	public addPath(path: string): Promise<Response> {
@@ -97,7 +127,7 @@ export class HubDriver {
 
 	/** Drops a path and reads the inventory back, the mirror of `adding`. */
 	public dropping(path: string): Promise<Inventory> {
-		return read<Inventory>(this.dropPath(path));
+		return read(inventory, this.dropPath(path));
 	}
 
 	public dropPath(path: string): Promise<Response> {
@@ -111,7 +141,12 @@ export class HubDriver {
 	}
 
 	public statuses(): Promise<Record<string, string>> {
-		return read<Record<string, string>>(this.get("/api/status"));
+		return read(statuses, this.get("/api/status"));
+	}
+
+	/** The status as the shell reads it, parsed, for a test that looks past the status word. */
+	public reported(slug: string): Promise<ActivationReport> {
+		return read(activation, this.status(slug));
 	}
 
 	public status(slug: string): Promise<Response> {
@@ -175,23 +210,25 @@ export class HubDriver {
 	}
 
 	public hide(path: string): Promise<Inventory> {
-		return read<Inventory>(
+		return read(
+			inventory,
 			this.post("/api/list/hidden", { path, hidden: true }),
 		);
 	}
 
 	public show(path: string): Promise<Inventory> {
-		return read<Inventory>(
+		return read(
+			inventory,
 			this.post("/api/list/hidden", { path, hidden: false }),
 		);
 	}
 
 	public move(path: string, before: string | null): Promise<Inventory> {
-		return read<Inventory>(this.post("/api/list/order", { path, before }));
+		return read(inventory, this.post("/api/list/order", { path, before }));
 	}
 
 	public resetOrder(): Promise<Inventory> {
-		return read<Inventory>(this.post("/api/list/reset", {}));
+		return read(inventory, this.post("/api/list/reset", {}));
 	}
 }
 
@@ -308,8 +345,11 @@ export class HubHarness {
  * shapes rather than on the parse. SAFETY: the one place the untyped body is named, so a
  * response shape that drifts is a failure in the test that reads it.
  */
-async function read<T>(answering: Promise<Response>): Promise<T> {
+async function read<T>(
+	schema: z.ZodType<T>,
+	answering: Promise<Response>,
+): Promise<T> {
 	const response = await answering;
 
-	return (await response.json()) as T;
+	return schema.parse(await response.json());
 }

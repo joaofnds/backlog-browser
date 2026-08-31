@@ -162,7 +162,11 @@ export function startHub(options: {
 	return server;
 }
 
-type Routes<T extends string> = Bun.Serve.Routes<undefined, T>;
+type Handler<P extends string> = (
+	request: Bun.BunRequest<P>,
+) => Response | Promise<Response>;
+type RouteValue<P extends string> = Handler<P> | Record<string, Handler<P>>;
+type Routes<T extends string> = { [P in T]: RouteValue<P> };
 
 interface ProjectSummary {
 	slug: string;
@@ -222,27 +226,43 @@ function guarded<T extends string>(
 		return null;
 	};
 
-	type Handler = (request: Bun.BunRequest) => Response | Promise<Response>;
 	const wrap =
-		(handler: Handler): Handler =>
+		<P extends T>(handler: Handler<P>): Handler<P> =>
 		(request) =>
 			check(request) ?? handler(request);
 
-	const guard = (route: unknown): unknown => {
-		if (typeof route === "function") {
-			return wrap(route as Handler);
+	/** A route is either one handler or a handler per method; both are wrapped the same way. */
+	const guard = <P extends T>(route: RouteValue<P>): RouteValue<P> =>
+		typeof route === "function"
+			? wrap(route)
+			: Object.fromEntries(
+					Object.entries(route).map(([method, handler]) => [
+						method,
+						wrap(handler),
+					]),
+				);
+
+	const guarded: Routes<T> = { ...routes };
+	for (const path of keysOf(guarded)) {
+		guarded[path] = guard(guarded[path]);
+	}
+
+	return guarded;
+}
+
+/**
+ * The keys of an object whose key type is known. `Object.keys` widens them to `string`, which
+ * would lose the path each route is declared under and with it the params it can name.
+ */
+function keysOf<T extends string>(routes: Routes<T>): T[] {
+	const keys: T[] = [];
+	for (const key in routes) {
+		if (Object.hasOwn(routes, key)) {
+			keys.push(key);
 		}
+	}
 
-		return Object.fromEntries(
-			Object.entries(route as Record<string, Handler>).map(
-				([method, handler]) => [method, wrap(handler)],
-			),
-		);
-	};
-
-	return Object.fromEntries(
-		Object.entries(routes).map(([path, route]) => [path, guard(route)]),
-	) as Routes<T>;
+	return keys;
 }
 
 /**
