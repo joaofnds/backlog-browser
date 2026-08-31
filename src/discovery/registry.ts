@@ -22,7 +22,11 @@ export class ProjectRegistry {
 	private discovered: Project[] = [];
 	private adopted: Project[] = [];
 
-	public constructor(props: { root: string; depth: number; file: string }) {
+	public constructor(props: {
+		readonly root: string;
+		readonly depth: number;
+		readonly file: string;
+	}) {
 		this.root = props.root;
 		this.currentDepth = props.depth;
 		this.file = props.file;

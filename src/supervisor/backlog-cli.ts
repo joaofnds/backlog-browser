@@ -2,8 +2,8 @@ export const BINARY = "backlog";
 export const REQUIRED_FLAGS = ["--port", "--non-interactive"] as const;
 
 export type CommandRunner = (
-	command: string[],
-) => Promise<{ ok: boolean; stdout: string }>;
+	command: readonly string[],
+) => Promise<{ readonly ok: boolean; readonly stdout: string }>;
 
 export interface BacklogCli {
 	binary: string;
@@ -16,7 +16,7 @@ export class BacklogUnavailableError extends Error {
 }
 
 export async function locateBacklog(
-	options: { run?: CommandRunner } = {},
+	options: { readonly run?: CommandRunner } = {},
 ): Promise<BacklogCli> {
 	const run = options.run ?? spawnCommand;
 
@@ -49,7 +49,7 @@ export async function locateBacklog(
 export async function spawnCommand(
 	command: string[],
 	timeoutMs = PREFLIGHT_TIMEOUT_MS,
-): Promise<{ ok: boolean; stdout: string }> {
+): Promise<{ readonly ok: boolean; readonly stdout: string }> {
 	try {
 		const child = Bun.spawn(command, {
 			stdout: "pipe",

@@ -7,8 +7,8 @@ import type { StateStore } from "./store.ts";
  * a collision leaves the fallback port stored rather than the one that failed.
  */
 export function rememberedPorts(props: {
-	store: StateStore;
-	allocate: (preferred: number) => Promise<number>;
+	readonly store: StateStore;
+	readonly allocate: (preferred: number) => Promise<number>;
 }): PortAllocator {
 	return async ({ path, reuse }) => {
 		const remembered = reuse ? await props.store.portFor(path) : null;

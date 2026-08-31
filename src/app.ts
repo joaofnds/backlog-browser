@@ -23,22 +23,22 @@ export interface App {
  */
 export async function startApp(
 	options: {
-		root: string;
-		port: number;
-		depth: number | null;
-		idleTimeoutMs: number;
-		rescan: boolean;
+		readonly root: string;
+		readonly port: number;
+		readonly depth: number | null;
+		readonly idleTimeoutMs: number;
+		readonly rescan: boolean;
 	},
 	deps: {
-		launch: ChildLauncher;
-		probe: ReadinessProbe;
-		allocate: (preferred: number) => Promise<number>;
-		chooseFolder: FolderChooser;
-		store: StateStore;
-		cacheFile: string;
-		readyTimeoutMs: number;
-		pollIntervalMs?: number;
-		now?: () => number;
+		readonly launch: ChildLauncher;
+		readonly probe: ReadinessProbe;
+		readonly allocate: (preferred: number) => Promise<number>;
+		readonly chooseFolder: FolderChooser;
+		readonly store: StateStore;
+		readonly cacheFile: string;
+		readonly readyTimeoutMs: number;
+		readonly pollIntervalMs?: number;
+		readonly now?: () => number;
 	},
 ): Promise<App> {
 	const { store } = deps;

@@ -3,8 +3,8 @@ export const STDERR_TAIL_CHUNKS = 25;
 export const KILL_GRACE_MS = 2000;
 
 export interface LaunchSpec {
-	cwd: string;
-	port: number;
+	readonly cwd: string;
+	readonly port: number;
 }
 
 export interface ChildProcess {

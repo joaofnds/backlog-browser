@@ -6,7 +6,7 @@ export class Project {
 	public readonly name: string;
 	public readonly slug: string;
 
-	public constructor(props: { path: string; name: string }) {
+	public constructor(props: { readonly path: string; readonly name: string }) {
 		this.path = props.path;
 		this.name = props.name;
 		this.slug = slugFor(props.path);

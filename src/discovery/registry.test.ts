@@ -24,7 +24,7 @@ function registry(depth = DEPTH): ProjectRegistry {
 	return new ProjectRegistry({ root, depth, file });
 }
 
-function namesOf(projects: readonly { name: string }[]): string[] {
+function namesOf(projects: readonly { readonly name: string }[]): string[] {
 	return projects.map((project) => project.name);
 }
 

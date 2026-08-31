@@ -36,7 +36,10 @@ function pathTo(name: string): string {
 	return join(harness.root, name.toLowerCase());
 }
 
-function pathsOf(inventory: Inventory, filter: { hidden: boolean }): string[] {
+function pathsOf(
+	inventory: Inventory,
+	filter: { readonly hidden: boolean },
+): string[] {
 	return inventory.projects
 		.filter((project) => project.hidden === filter.hidden)
 		.map((project) => project.path);

@@ -36,7 +36,7 @@ export class UsageError extends Error {
 	public override readonly name = "UsageError";
 }
 
-export function parseOptions(argv: string[]): HubOptions {
+export function parseOptions(argv: readonly string[]): HubOptions {
 	const { values, positionals } = read(argv);
 
 	if (positionals.length > 1) {
@@ -73,7 +73,7 @@ interface ParsedArgs {
 	positionals: string[];
 }
 
-function read(argv: string[]): ParsedArgs {
+function read(argv: readonly string[]): ParsedArgs {
 	try {
 		return parseArgs({
 			args: argv,
@@ -93,7 +93,7 @@ function read(argv: string[]): ParsedArgs {
 	}
 }
 
-export function wantsHelp(argv: string[]): boolean {
+export function wantsHelp(argv: readonly string[]): boolean {
 	return argv.includes("--help") || argv.includes("-h");
 }
 

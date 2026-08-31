@@ -20,11 +20,11 @@ import {
 } from "./requests.ts";
 
 export function startHub(options: {
-	registry: ProjectRegistry;
-	store: StateStore;
-	supervisor: Supervisor;
-	chooseFolder: FolderChooser;
-	port: number;
+	readonly registry: ProjectRegistry;
+	readonly store: StateStore;
+	readonly supervisor: Supervisor;
+	readonly chooseFolder: FolderChooser;
+	readonly port: number;
 }): Bun.Server<undefined> {
 	const { registry, store, supervisor, chooseFolder } = options;
 

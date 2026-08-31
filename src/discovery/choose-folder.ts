@@ -7,7 +7,7 @@ export type ChosenFolder =
 	| { readonly kind: "failed"; readonly reason: string };
 
 export type FolderChooser = (options: {
-	startAt: string;
+	readonly startAt: string;
 }) => Promise<ChosenFolder>;
 
 const PROMPT = "Choose a Backlog.md project folder";

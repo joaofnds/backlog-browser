@@ -10,12 +10,12 @@ const gamma = new Project({ path: "/code/gamma", name: "Gamma" });
 
 const discovered = [alpha, beta, gamma];
 
-function pathsOf(listed: readonly { project: Project }[]): string[] {
+function pathsOf(listed: readonly { readonly project: Project }[]): string[] {
 	return listed.map((entry) => entry.project.path);
 }
 
 function visiblePathsOf(
-	listed: readonly { project: Project; hidden: boolean }[],
+	listed: readonly { readonly project: Project; readonly hidden: boolean }[],
 ): string[] {
 	return pathsOf(listed.filter((entry) => !entry.hidden));
 }

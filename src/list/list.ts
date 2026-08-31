@@ -16,10 +16,10 @@ export class ProjectList {
 	public readonly added: readonly string[];
 
 	public constructor(props: {
-		mode: OrderMode;
-		order: readonly string[];
-		hidden: readonly string[];
-		added: readonly string[];
+		readonly mode: OrderMode;
+		readonly order: readonly string[];
+		readonly hidden: readonly string[];
+		readonly added: readonly string[];
 	}) {
 		this.mode = props.mode;
 		this.order = props.order;
@@ -100,9 +100,9 @@ export class ProjectList {
 	 * slot: it is never named, so it rides along with whichever neighbour it sits behind.
 	 */
 	public move(props: {
-		path: string;
-		before: string | null;
-		discovered: readonly Project[];
+		readonly path: string;
+		readonly before: string | null;
+		readonly discovered: readonly Project[];
 	}): ProjectList {
 		if (this.hidden.includes(props.path)) {
 			return this;

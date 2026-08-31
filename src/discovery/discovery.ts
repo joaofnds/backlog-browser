@@ -16,8 +16,8 @@ const IGNORED_DIRECTORIES = new Set([
 ]);
 
 export type ProjectFinder = (options: {
-	root: string;
-	depth: number;
+	readonly root: string;
+	readonly depth: number;
 }) => Promise<string[]>;
 
 export const findProjectPaths: ProjectFinder = async (options) => {

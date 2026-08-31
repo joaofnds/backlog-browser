@@ -15,7 +15,7 @@ export class StateStore {
 	private readonly root: string;
 	private writes: Promise<unknown> = Promise.resolve();
 
-	public constructor(props: { file: string; root: string }) {
+	public constructor(props: { readonly file: string; readonly root: string }) {
 		this.file = props.file;
 		this.root = props.root;
 	}

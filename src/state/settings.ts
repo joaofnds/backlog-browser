@@ -3,8 +3,8 @@ export const SETTING_BOUNDS = {
 } as const;
 
 export interface SettingBounds {
-	minimum: number;
-	maximum: number;
+	readonly minimum: number;
+	readonly maximum: number;
 }
 
 export function within(value: unknown, bounds: SettingBounds): number | null {

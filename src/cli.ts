@@ -80,8 +80,8 @@ function announce(app: App, root: string): void {
 }
 
 function installShutdown(handlers: {
-	stop: () => Promise<void>;
-	force: () => void;
+	readonly stop: () => Promise<void>;
+	readonly force: () => void;
 }): void {
 	let stopping = false;
 

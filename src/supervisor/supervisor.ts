@@ -9,16 +9,20 @@ export const MAX_PORT_ATTEMPTS = 3;
  * `localStorage` alive across hub runs. A retry clears it, or a collision would repeat forever.
  */
 export interface PortRequest {
-	path: string;
-	reuse: boolean;
+	readonly path: string;
+	readonly reuse: boolean;
 }
 export type PortAllocator = (request: PortRequest) => Promise<number>;
 
 export type Activation =
-	| { status: "idle" }
-	| { status: "starting" }
-	| { status: "ready"; port: number; url: string }
-	| { status: "failed"; error: string; stderr?: string };
+	| { readonly status: "idle" }
+	| { readonly status: "starting" }
+	| { readonly status: "ready"; readonly port: number; readonly url: string }
+	| {
+			readonly status: "failed";
+			readonly error: string;
+			readonly stderr?: string;
+	  };
 
 interface Entry {
 	readonly project: Project;
@@ -30,11 +34,11 @@ interface Entry {
 }
 
 type Failure =
-	| { kind: "collision" }
-	| { kind: "exited"; code: number }
-	| { kind: "timeout" };
+	| { readonly kind: "collision" }
+	| { readonly kind: "exited"; readonly code: number }
+	| { readonly kind: "timeout" };
 
-type Outcome = { kind: "ready" } | Failure;
+type Outcome = { readonly kind: "ready" } | Failure;
 
 export class Supervisor {
 	private readonly launch: ChildLauncher;
@@ -49,13 +53,13 @@ export class Supervisor {
 	private stopped = false;
 
 	public constructor(props: {
-		launch: ChildLauncher;
-		probe: ReadinessProbe;
-		portFor: PortAllocator;
-		idleTimeoutMs: number;
-		readyTimeoutMs: number;
-		pollIntervalMs?: number;
-		now?: () => number;
+		readonly launch: ChildLauncher;
+		readonly probe: ReadinessProbe;
+		readonly portFor: PortAllocator;
+		readonly idleTimeoutMs: number;
+		readonly readyTimeoutMs: number;
+		readonly pollIntervalMs?: number;
+		readonly now?: () => number;
 	}) {
 		this.launch = props.launch;
 		this.probe = props.probe;
@@ -164,7 +168,7 @@ export class Supervisor {
 
 	private async spawn(
 		entry: Entry,
-		options: { reuse: boolean },
+		options: { readonly reuse: boolean },
 	): Promise<void> {
 		const port = await this.portFor({
 			path: entry.project.path,

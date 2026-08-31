@@ -43,22 +43,27 @@ export class FakeChooser {
 	};
 }
 
+/** Time the tests move by hand, so an idle sweep can be provoked without waiting for one. */
+interface TestClock {
+	now: number;
+}
+
 export class HubHarness {
 	private constructor(
 		public readonly root: string,
 		private readonly app: App,
 		public readonly backlog: FakeBacklog,
 		public readonly chooser: FakeChooser,
-		public readonly clock: { now: number },
+		public readonly clock: TestClock,
 	) {}
 
 	/** Boots through `startApp`, the same composition root the CLI uses, with the Fakes as deps. */
 	public static async start(
 		options: {
-			depth?: number;
-			root?: string;
-			rescan?: boolean;
-			idleTimeoutMs?: number;
+			readonly depth?: number;
+			readonly root?: string;
+			readonly rescan?: boolean;
+			readonly idleTimeoutMs?: number;
 		} = {},
 	): Promise<HubHarness> {
 		// Real path, not the `/var` symlink macOS hands back: a project is named by its real
@@ -134,7 +139,11 @@ export class HubHarness {
 	 * project landing on its old port evidence that the port was remembered rather than re-derived.
 	 */
 	public async restart(
-		options: { depth?: number; rescan?: boolean; idleTimeoutMs?: number } = {},
+		options: {
+			readonly depth?: number;
+			readonly rescan?: boolean;
+			readonly idleTimeoutMs?: number;
+		} = {},
 	): Promise<HubHarness> {
 		await this.app.stop();
 
