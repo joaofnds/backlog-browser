@@ -28,8 +28,24 @@ function brandOf(value) {
  * @returns {Record<string, unknown>}
  */
 function fields(value) {
-  if (value === null || brandOf(value) !== "[object Object]") {
+  const held = fieldsOrNull(value);
+  if (held === null) {
     throw new TypeError("the hub answered with something that is not an object");
+  }
+
+  return held;
+}
+
+/**
+ * The same parse where absence is an answer rather than a fault: `history.state` is whatever some
+ * earlier page put there, and a foreign shape is a miss, not a bug to fail on.
+ *
+ * @param {unknown} value
+ * @returns {Record<string, unknown> | null}
+ */
+function fieldsOrNull(value) {
+  if (value === null || brandOf(value) !== "[object Object]") {
+    return null;
   }
 
   return { ...value };
@@ -176,7 +192,7 @@ const stage = mustContain("placeholder");
 const switcher = mustContain("project-list");
 
 const POLL_INTERVAL_MS = 400;
-const STATUS_POLL_MS = 2_000;
+const STATUS_POLL_MS = 2000;
 /** Browsers throttle a hidden tab's timers to about a minute, so ask for well under the sweep. */
 const KEEP_WARM_MS = 30_000;
 
@@ -213,7 +229,7 @@ function projectRoute(slug) {
 
 /**
  * @param {unknown} body
- * @returns {RequestInit}
+ * @returns {JsonPost}
  */
 function postJson(body) {
   return {
@@ -253,7 +269,7 @@ async function hideProject(project) {
     return;
   }
 
-  const next = visible()[0];
+  const [next] = visible();
   if (next) {
     void switchTo(next.slug);
   }
@@ -272,7 +288,7 @@ async function nudge(project, step) {
   const order = visible();
   const from = order.findIndex((candidate) => candidate.path === project.path);
   const to = from + step;
-  if (from < 0 || to < 0 || to >= order.length) {
+  if (from === -1 || to < 0 || to >= order.length) {
     return;
   }
 
@@ -352,9 +368,9 @@ function statusDot(project) {
   return dot;
 }
 
-/** @param {string} text */
-function labelled(text) {
-  const label = element("span", text);
+/** @param {string} caption */
+function labelled(caption) {
+  const label = element("span", caption);
   label.className = "visually-hidden";
 
   return label;
@@ -369,7 +385,7 @@ function renderToolbar() {
     return;
   }
 
-  projectList.replaceChildren(...visible().map(projectButton));
+  projectList.replaceChildren(...visible().map((project) => projectButton(project)));
   collapseOverflow();
 }
 
@@ -426,16 +442,16 @@ function fitsOneRow() {
 /**
  * The pill the dragged one should land in front of, or `null` for the end of the row.
  *
- * @param {number} x
+ * @param {number} edge the viewport x the pointer is at
  */
-function anchorAt(x) {
+function anchorAt(edge) {
   for (const pill of projectList.querySelectorAll(".project")) {
     if (!(pill instanceof HTMLElement) || pill.dataset.path === dragging) {
       continue;
     }
 
     const box = pill.getBoundingClientRect();
-    if (x < box.left + box.width / 2) {
+    if (edge < box.left + box.width / 2) {
       return pill;
     }
   }
@@ -443,15 +459,15 @@ function anchorAt(x) {
   return null;
 }
 
-/** @param {number} x */
-function markDrop(x) {
+/** @param {number} edge the viewport x the pointer is at */
+function markDrop(edge) {
   clearDropMarks();
-  const anchor = anchorAt(x);
+  const anchor = anchorAt(edge);
 
-  if (anchor !== null) {
-    anchor.parentElement?.classList.add("drop-before");
-  } else {
+  if (anchor === null) {
     projectList.lastElementChild?.classList.add("drop-after");
+  } else {
+    anchor.parentElement?.classList.add("drop-before");
   }
 }
 
@@ -600,10 +616,10 @@ function frameFor(slug, url) {
  * had, so `frameFor` would match on `src` and re-reveal the document the stopped child served.
  */
 function dropStoppedFrames() {
-  for (const slug of [...frames.keys()]) {
-    if (statuses.get(slug) !== "ready") {
-      dropFrame(slug);
-    }
+  const stopped = [...frames.keys()].filter((slug) => statuses.get(slug) !== "ready");
+
+  for (const slug of stopped) {
+    dropFrame(slug);
   }
 }
 
@@ -682,11 +698,11 @@ function showDeadChild(heading, detail, stderr) {
 
 /**
  * @param {string} tag
- * @param {string} text
+ * @param {string} content
  */
-function element(tag, text) {
+function element(tag, content) {
   const node = document.createElement(tag);
-  node.textContent = text;
+  node.textContent = content;
 
   return node;
 }
@@ -709,9 +725,14 @@ async function loadStatuses() {
   );
 }
 
-/** Without the catch, one refused tick would end the chain: nothing re-arms after a rejection. */
+/**
+ * A refused tick is not news: the hub is local, the next tick is 2 s away, and the statuses on
+ * screen are simply left as they were. What the catch is really for is the chain, which nothing
+ * re-arms after a rejection, so the failure is absorbed here and the tick still ends in a
+ * reschedule.
+ */
 async function pollStatus() {
-  await loadStatuses().catch(() => {});
+  await loadStatuses().catch(keepLastKnownStatuses);
 
   patchDots();
   restageIfChanged();
@@ -741,10 +762,21 @@ function restageIfChanged() {
  */
 async function keepWarm() {
   if (activeSlug !== null) {
-    await fetch(`/api/status?active=${encodeURIComponent(activeSlug)}`).catch(() => {});
+    await fetch(`/api/status?active=${encodeURIComponent(activeSlug)}`).catch(
+      keepLastKnownStatuses,
+    );
   }
 
   scheduleStatusPoll();
+}
+
+/**
+ * The answer to a status request that did not arrive. `statuses` already holds the last report
+ * the hub gave, and leaving it standing is the whole handling a background tick needs: the
+ * alternative, clearing it, would paint every pill grey over a hub that is merely slow.
+ */
+function keepLastKnownStatuses() {
+  return undefined;
 }
 
 /**
@@ -823,7 +855,7 @@ async function switchTo(slug, options = {}) {
  * @param {string} slug
  * @param {string} path
  * @param {number} epoch
- * @param {RequestInit} [init]
+ * @param {JsonPost} [init]
  */
 async function settle(slug, path, epoch, init) {
   const response = await fetch(path, init).catch(() => null);
@@ -876,7 +908,7 @@ async function restage(slug) {
 
 /**
  * @param {string} path
- * @param {RequestInit} [init]
+ * @param {JsonPost} [init]
  */
 async function load(path, init) {
   const response = await fetch(path, init).catch(() => null);
@@ -894,10 +926,12 @@ async function load(path, init) {
 async function refresh(depth) {
   await load("/api/refresh", postJson(depth === undefined ? {} : { depth }));
 
-  for (const slug of [...frames.keys()]) {
-    if (!inventory.projects.some((project) => project.slug === slug)) {
-      dropFrame(slug);
-    }
+  const vanished = [...frames.keys()].filter(
+    (slug) => !inventory.projects.some((project) => project.slug === slug),
+  );
+
+  for (const slug of vanished) {
+    dropFrame(slug);
   }
 
   if (activeSlug !== null && !inventory.projects.some((it) => it.slug === activeSlug)) {
@@ -963,9 +997,9 @@ async function reasonFrom(response) {
     .json()
     .then((value) => fields(value))
     .catch(() => null);
-  const reason = body?.error;
+  const reason = stringOrNull(body?.error);
 
-  return typeof reason === "string" ? reason : `The hub answered ${response.status}.`;
+  return reason ?? `The hub answered ${response.status}.`;
 }
 
 /** @param {string} path */
@@ -1039,8 +1073,10 @@ function renderPicker() {
 
   const rows = listed.map((project, index) => pickerRow(project, index));
   if (concealed.length > 0) {
-    rows.push(separator("Hidden"));
-    rows.push(...concealed.map((project, index) => pickerRow(project, listed.length + index)));
+    rows.push(
+      separator("Hidden"),
+      ...concealed.map((project, index) => pickerRow(project, listed.length + index)),
+    );
   }
 
   pickerList.replaceChildren(...rows);
@@ -1136,13 +1172,33 @@ function movePickerSelection(step) {
  * @returns {string | null}
  */
 function slugFromHistory(state) {
-  if (state === null || typeof state !== "object" || !("slug" in state)) {
+  const held = fieldsOrNull(state);
+  if (held === null) {
     return null;
   }
 
-  const { slug } = state;
+  const slug = stringOrNull(held.slug);
 
-  return typeof slug === "string" && slug !== "" ? slug : null;
+  return slug === "" ? null : slug;
+}
+
+/**
+ * `PopStateEvent.state` is typed `any`, which would spread through every caller. Reading it here,
+ * behind a check that the event is really a popstate, is what turns it back into `unknown` so the
+ * parser above has to do its work.
+ *
+ * @param {Readonly<{ state: unknown }>} carrier
+ * @returns {unknown}
+ */
+function restoredState(carrier) {
+  const { state } = carrier;
+
+  return state;
+}
+
+/** @returns {string | null} */
+function openingParam() {
+  return new URL(location.href).searchParams.get("project");
 }
 
 /* Wiring ------------------------------------------------------------------- */
@@ -1250,8 +1306,9 @@ document.addEventListener("keydown", (event) => {
   }
 });
 
-window.addEventListener("popstate", (event) => {
-  const slug = slugFromHistory(event.state) ?? new URL(location.href).searchParams.get("project");
+globalThis.addEventListener("popstate", (event) => {
+  const restored = event instanceof PopStateEvent ? restoredState(event) : null;
+  const slug = slugFromHistory(restored) ?? openingParam();
   if (slug !== null && slug !== "") {
     void switchTo(slug, { replace: true });
   }
@@ -1272,4 +1329,9 @@ if (opening !== null) {
 
 scheduleStatusPoll();
 
-export {};
+/**
+ * The shell is served as text and runs as the page's only module; it exports nothing anyone
+ * imports. The marker is still load-bearing: without it the file is a script, and `frames` at the
+ * top level would collide with `window.frames` instead of being this module's own binding.
+ */
+export const SHELL_IS_A_MODULE = true;
