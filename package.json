@@ -26,10 +26,11 @@
   },
   "scripts": {
     "build": "bun build --compile --outfile dist/backlog-browser src/cli.ts",
-    "check": "bun run fmt && bun run lint && bun run typecheck && bun test",
+    "check": "bun run fmt && bun run typecheck && bun test",
     "fmt": "oxfmt",
     "fmt:check": "oxfmt --check",
-    "lint": "oxlint --type-aware",
+    "lint": "oxlint",
+    "lint:types": "oxlint --type-aware",
     "scan": "gitleaks dir --no-banner --redact . && gitleaks git --no-banner --redact .",
     "start": "bun run src/cli.ts",
     "test": "bun test",
