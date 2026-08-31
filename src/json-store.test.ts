@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { z } from "zod";
 
 import { readRoots, writeJson } from "./json-store.ts";
+import type { Json } from "./json.ts";
 
 const body = z.object({ kept: z.string() });
 
@@ -21,8 +22,13 @@ afterEach(async () => {
 	await rm(directory, { recursive: true, force: true });
 });
 
-async function write(document: unknown): Promise<void> {
+async function write(document: Json): Promise<void> {
 	await writeJson(file, document);
+}
+
+/** Bytes that are not a document at all, which `writeJson` would refuse to be given. */
+async function writeRaw(bytes: string): Promise<void> {
+	await Bun.write(file, bytes);
 }
 
 describe("reading the roots of a state file", () => {
@@ -43,7 +49,7 @@ describe("reading the roots of a state file", () => {
 		});
 
 		test("reads no roots from bytes that are not JSON", async () => {
-			await Bun.write(file, "{ truncated");
+			await writeRaw("{ truncated");
 
 			expect(await readRoots(file, body)).toEqual({});
 		});

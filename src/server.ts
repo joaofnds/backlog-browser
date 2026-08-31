@@ -2,6 +2,8 @@ import type { z } from "zod";
 
 import type { FolderChooser } from "./choose-folder.ts";
 import { readProject } from "./discovery.ts";
+import type { Inventory, ProjectSummary } from "./inventory.ts";
+import type { Json } from "./json.ts";
 import type { ProjectRegistry } from "./registry.ts";
 import type { ListedProject } from "./list.ts";
 import shellHtml from "./shell/index.html" with { type: "text" };
@@ -169,22 +171,6 @@ type RouteValue<Path extends string> =
 	| Handler<Path>
 	| Record<string, Handler<Path>>;
 type Routes<Paths extends string> = { [Path in Paths]: RouteValue<Path> };
-
-interface ProjectSummary {
-	slug: string;
-	name: string;
-	path: string;
-	hidden: boolean;
-	added: boolean;
-}
-
-interface Inventory {
-	root: string;
-	depth: number;
-	active: string | null;
-	mode: "default" | "manual";
-	projects: ProjectSummary[];
-}
 
 /**
  * The hub listens on a known loopback port for as long as it runs, so every page the user visits
@@ -369,6 +355,10 @@ function noStore(response: Response): Response {
 	return response;
 }
 
-function json(body: unknown, status = 200): Response {
+/**
+ * A route's answer on the wire. Anything a route hands over has to survive serialisation, which
+ * is what `Json` states; the route's own shape is declared where the route is.
+ */
+function json(body: Json, status = 200): Response {
 	return Response.json(body, { status });
 }

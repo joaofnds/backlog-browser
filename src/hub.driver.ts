@@ -1,51 +1,17 @@
 import { connect } from "node:net";
 
-import { z } from "zod";
+import type { z } from "zod";
 
 import { deferred } from "./deferred.ts";
+import {
+	activationSchema,
+	inventorySchema,
+	statusesSchema,
+} from "./inventory.ts";
+import type { ActivationReport, Inventory } from "./inventory.ts";
+import type { Json } from "./json.ts";
 
-/**
- * The shapes the hub answers with. The tests parse against these rather than asserting, so a
- * response that drifts fails in the driver, naming the field, instead of somewhere downstream.
- */
-const projectSummary = z.object({
-	slug: z.string(),
-	name: z.string(),
-	path: z.string(),
-	hidden: z.boolean(),
-	added: z.boolean(),
-});
-
-export type ProjectSummary = z.infer<typeof projectSummary>;
-const inventory = z.object({
-	root: z.string(),
-	depth: z.number(),
-	active: z.string().nullable(),
-	mode: z.enum(["default", "manual"]),
-	projects: z.array(projectSummary),
-});
-
-export type Inventory = z.infer<typeof inventory>;
-
-const statuses = z.record(z.string(), z.string());
-
-/** What `/api/projects/:slug` answers: the shape depends on how far the child got. */
-const activation = z.discriminatedUnion("status", [
-	z.object({ status: z.literal("idle") }),
-	z.object({ status: z.literal("starting") }),
-	z.object({
-		status: z.literal("ready"),
-		port: z.number(),
-		url: z.string(),
-	}),
-	z.object({
-		status: z.literal("failed"),
-		error: z.string(),
-		stderr: z.string().optional(),
-	}),
-]);
-
-export type ActivationReport = z.infer<typeof activation>;
+export type { Inventory, ProjectSummary } from "./inventory.ts";
 
 export class HubDriver {
 	public constructor(public readonly origin: string) {}
@@ -55,11 +21,11 @@ export class HubDriver {
 	}
 
 	public projects(): Promise<Inventory> {
-		return read(inventory, this.get("/api/projects"));
+		return read(inventorySchema, this.get("/api/projects"));
 	}
 
 	public refresh(depth?: number): Promise<Inventory> {
-		return read(inventory, this.refreshing(depth));
+		return read(inventorySchema, this.refreshing(depth));
 	}
 
 	public refreshing(depth?: number): Promise<Response> {
@@ -72,7 +38,7 @@ export class HubDriver {
 
 	/** Adds a path and reads the inventory back, which is what most callers want from it. */
 	public adding(path: string): Promise<Inventory> {
-		return read(inventory, this.addPath(path));
+		return read(inventorySchema, this.addPath(path));
 	}
 
 	public addPath(path: string): Promise<Response> {
@@ -81,7 +47,7 @@ export class HubDriver {
 
 	/** Drops a path and reads the inventory back, the mirror of `adding`. */
 	public dropping(path: string): Promise<Inventory> {
-		return read(inventory, this.dropPath(path));
+		return read(inventorySchema, this.dropPath(path));
 	}
 
 	public dropPath(path: string): Promise<Response> {
@@ -95,19 +61,19 @@ export class HubDriver {
 	}
 
 	public statuses(): Promise<Record<string, string>> {
-		return read(statuses, this.get("/api/status"));
+		return read(statusesSchema, this.get("/api/status"));
 	}
 
 	/** The status as the shell reads it, parsed, for a test that looks past the status word. */
 	public reported(slug: string): Promise<ActivationReport> {
-		return read(activation, this.status(slug));
+		return read(activationSchema, this.status(slug));
 	}
 
 	public status(slug: string): Promise<Response> {
 		return this.get(`/api/projects/${slug}`);
 	}
 
-	public post(path: string, body: unknown): Promise<Response> {
+	public post(path: string, body: Json): Promise<Response> {
 		return fetch(`${this.origin}${path}`, {
 			method: "POST",
 			headers: { "content-type": "application/json" },
@@ -116,11 +82,7 @@ export class HubDriver {
 	}
 
 	/** A request as another site's page would send it: the browser stamps its own origin on. */
-	public postFrom(
-		origin: string,
-		path: string,
-		body: unknown,
-	): Promise<Response> {
+	public postFrom(origin: string, path: string, body: Json): Promise<Response> {
 		return fetch(`${this.origin}${path}`, {
 			method: "POST",
 			headers: { "content-type": "application/json", origin },
@@ -166,24 +128,27 @@ export class HubDriver {
 
 	public hide(path: string): Promise<Inventory> {
 		return read(
-			inventory,
+			inventorySchema,
 			this.post("/api/list/hidden", { path, hidden: true }),
 		);
 	}
 
 	public show(path: string): Promise<Inventory> {
 		return read(
-			inventory,
+			inventorySchema,
 			this.post("/api/list/hidden", { path, hidden: false }),
 		);
 	}
 
 	public move(path: string, before: string | null): Promise<Inventory> {
-		return read(inventory, this.post("/api/list/order", { path, before }));
+		return read(
+			inventorySchema,
+			this.post("/api/list/order", { path, before }),
+		);
 	}
 
 	public resetOrder(): Promise<Inventory> {
-		return read(inventory, this.post("/api/list/reset", {}));
+		return read(inventorySchema, this.post("/api/list/reset", {}));
 	}
 }
 

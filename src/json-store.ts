@@ -3,6 +3,7 @@ import { join } from "node:path";
 
 import { z } from "zod";
 
+import type { Json } from "./json.ts";
 import { stateHome } from "./environment.ts";
 
 const rootsEnvelope = z.object({
@@ -54,7 +55,7 @@ export async function readRoots<T>(
  * Written beside and renamed over, so a crash mid-write cannot leave a half-written file. The pid
  * keeps two hubs from renaming each other's scratch out from underneath.
  */
-export async function writeJson(file: string, value: unknown): Promise<void> {
+export async function writeJson(file: string, value: Json): Promise<void> {
 	const scratch = `${file}.${process.pid}.tmp`;
 	await Bun.write(scratch, `${JSON.stringify(value, null, 2)}\n`);
 	await rename(scratch, file);
