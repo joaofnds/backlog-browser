@@ -13,26 +13,30 @@ import type { Supervisor } from "../supervisor/supervisor.ts";
 
 /** Stands in for the host's chooser: the tests say what the user chose, no window involved. */
 export class FakeChooser {
-	readonly openedAt: string[] = [];
+	public readonly openedAt: string[] = [];
 	private answer: ChosenFolder = { kind: "cancelled" };
 
-	chooses(path: string): void {
+	public chooses(path: string): void {
 		this.answer = { kind: "chosen", path };
 	}
 
-	cancels(): void {
+	public cancels(): void {
 		this.answer = { kind: "cancelled" };
 	}
 
-	breaks(reason: string): void {
+	public breaks(reason: string): void {
 		this.answer = { kind: "unavailable", reason };
 	}
 
-	fails(reason: string): void {
+	public fails(reason: string): void {
 		this.answer = { kind: "failed", reason };
 	}
 
-	choose = async ({ startAt }: { startAt: string }): Promise<ChosenFolder> => {
+	public choose = async ({
+		startAt,
+	}: {
+		startAt: string;
+	}): Promise<ChosenFolder> => {
 		this.openedAt.push(startAt);
 
 		return this.answer;
@@ -41,15 +45,15 @@ export class FakeChooser {
 
 export class HubHarness {
 	private constructor(
-		readonly root: string,
+		public readonly root: string,
 		private readonly app: App,
-		readonly backlog: FakeBacklog,
-		readonly chooser: FakeChooser,
-		readonly clock: { now: number },
+		public readonly backlog: FakeBacklog,
+		public readonly chooser: FakeChooser,
+		public readonly clock: { now: number },
 	) {}
 
 	/** Boots through `startApp`, the same composition root the CLI uses, with the Fakes as deps. */
-	static async start(
+	public static async start(
 		options: {
 			depth?: number;
 			root?: string;
@@ -93,15 +97,15 @@ export class HubHarness {
 		return new HubHarness(root, app, backlog, chooser, clock);
 	}
 
-	get store(): StateStore {
+	public get store(): StateStore {
 		return this.app.store;
 	}
 
-	get supervisor(): Supervisor {
+	public get supervisor(): Supervisor {
 		return this.app.supervisor;
 	}
 
-	projectFor(slug: string): Project {
+	public projectFor(slug: string): Project {
 		const project = this.app.registry.find(slug);
 		if (!project) {
 			throw new Error(`no discovered project with slug ${slug}`);
@@ -110,11 +114,11 @@ export class HubHarness {
 		return project;
 	}
 
-	driver(): HubDriver {
+	public driver(): HubDriver {
 		return new HubDriver(this.app.server.url.origin);
 	}
 
-	async addProject(name: string, directory = name): Promise<string> {
+	public async addProject(name: string, directory = name): Promise<string> {
 		const path = join(this.root, directory);
 		await Bun.write(
 			join(path, "backlog", "config.yml"),
@@ -129,7 +133,7 @@ export class HubHarness {
 	 * child ports do not: a fresh `FakeBacklog` counts from the bottom again, which is what makes a
 	 * project landing on its old port evidence that the port was remembered rather than re-derived.
 	 */
-	async restart(
+	public async restart(
 		options: { depth?: number; rescan?: boolean; idleTimeoutMs?: number } = {},
 	): Promise<HubHarness> {
 		await this.app.stop();
@@ -137,7 +141,7 @@ export class HubHarness {
 		return HubHarness.start({ ...options, root: this.root });
 	}
 
-	async stop(): Promise<void> {
+	public async stop(): Promise<void> {
 		await this.app.stop();
 		await rm(this.root, { recursive: true, force: true });
 	}
@@ -159,53 +163,51 @@ export interface Inventory {
 }
 
 export class HubDriver {
-	constructor(readonly origin: string) {}
+	public constructor(public readonly origin: string) {}
 
-	async get(path: string): Promise<Response> {
+	public async get(path: string): Promise<Response> {
 		return fetch(`${this.origin}${path}`);
 	}
 
-	async projects(): Promise<Inventory> {
-		return (await this.get("/api/projects")).json() as Promise<Inventory>;
+	public async projects(): Promise<Inventory> {
+		return this.read<Inventory>(this.get("/api/projects"));
 	}
 
-	async refresh(depth?: number): Promise<Inventory> {
-		return (await this.refreshing(depth)).json() as Promise<Inventory>;
+	public async refresh(depth?: number): Promise<Inventory> {
+		return this.read<Inventory>(this.refreshing(depth));
 	}
 
-	async refreshing(depth?: number): Promise<Response> {
+	public async refreshing(depth?: number): Promise<Response> {
 		return this.post("/api/refresh", depth === undefined ? {} : { depth });
 	}
 
-	async chooseFolder(): Promise<Response> {
+	public async chooseFolder(): Promise<Response> {
 		return this.post("/api/choose-folder", {});
 	}
 
-	async addPath(path: string): Promise<Response> {
+	public async addPath(path: string): Promise<Response> {
 		return this.post("/api/list/added", { path, added: true });
 	}
 
-	async dropPath(path: string): Promise<Response> {
+	public async dropPath(path: string): Promise<Response> {
 		return this.post("/api/list/added", { path, added: false });
 	}
 
-	async activate(slug: string): Promise<Response> {
+	public async activate(slug: string): Promise<Response> {
 		return fetch(`${this.origin}/api/projects/${slug}/activate`, {
 			method: "POST",
 		});
 	}
 
-	async statuses(): Promise<Record<string, string>> {
-		return (await this.get("/api/status")).json() as Promise<
-			Record<string, string>
-		>;
+	public async statuses(): Promise<Record<string, string>> {
+		return this.read<Record<string, string>>(this.get("/api/status"));
 	}
 
-	async status(slug: string): Promise<Response> {
+	public async status(slug: string): Promise<Response> {
 		return this.get(`/api/projects/${slug}`);
 	}
 
-	async post(path: string, body: unknown): Promise<Response> {
+	public async post(path: string, body: unknown): Promise<Response> {
 		return fetch(`${this.origin}${path}`, {
 			method: "POST",
 			headers: { "content-type": "application/json" },
@@ -214,7 +216,7 @@ export class HubDriver {
 	}
 
 	/** A request as another site's page would send it: the browser stamps its own origin on. */
-	async postFrom(
+	public async postFrom(
 		origin: string,
 		path: string,
 		body: unknown,
@@ -227,7 +229,7 @@ export class HubDriver {
 	}
 
 	/** A request reaching the hub under a rebound name rather than its own loopback host. */
-	async getAs(host: string, path: string): Promise<Response> {
+	public async getAs(host: string, path: string): Promise<Response> {
 		return fetch(`${this.origin}${path}`, { headers: { host } });
 	}
 
@@ -235,7 +237,7 @@ export class HubDriver {
 	 * A request naming no host at all, which `fetch` cannot express: it always sends one. Only a
 	 * raw client can, so this speaks HTTP/1.0 down a socket and reads the status line back.
 	 */
-	async hostless(path: string): Promise<Response> {
+	public async hostless(path: string): Promise<Response> {
 		const url = new URL(this.origin);
 		const raw = await new Promise<string>((resolve, reject) => {
 			const socket = connect(
@@ -259,27 +261,34 @@ export class HubDriver {
 		return new Response(body, { status });
 	}
 
-	async hide(path: string): Promise<Inventory> {
-		return (
-			await this.post("/api/list/hidden", { path, hidden: true })
-		).json() as Promise<Inventory>;
+	public async hide(path: string): Promise<Inventory> {
+		return this.read<Inventory>(
+			this.post("/api/list/hidden", { path, hidden: true }),
+		);
 	}
 
-	async show(path: string): Promise<Inventory> {
-		return (
-			await this.post("/api/list/hidden", { path, hidden: false })
-		).json() as Promise<Inventory>;
+	public async show(path: string): Promise<Inventory> {
+		return this.read<Inventory>(
+			this.post("/api/list/hidden", { path, hidden: false }),
+		);
 	}
 
-	async move(path: string, before: string | null): Promise<Inventory> {
-		return (
-			await this.post("/api/list/order", { path, before })
-		).json() as Promise<Inventory>;
+	public async move(path: string, before: string | null): Promise<Inventory> {
+		return this.read<Inventory>(this.post("/api/list/order", { path, before }));
 	}
 
-	async resetOrder(): Promise<Inventory> {
-		return (
-			await this.post("/api/list/reset", {})
-		).json() as Promise<Inventory>;
+	public async resetOrder(): Promise<Inventory> {
+		return this.read<Inventory>(this.post("/api/list/reset", {}));
+	}
+
+	/**
+	 * The hub's own routes answer with the shapes declared above, and the tests assert on those
+	 * shapes rather than on the parse. SAFETY: the one place the untyped body is named, so a
+	 * response shape that drifts is a failure in the test that reads it.
+	 */
+	private async read<T>(answering: Promise<Response>): Promise<T> {
+		const response = await answering;
+
+		return (await response.json()) as T;
 	}
 }

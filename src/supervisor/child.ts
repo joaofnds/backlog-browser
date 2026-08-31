@@ -34,7 +34,7 @@ class BacklogChild implements ChildProcess {
 	private readonly chunks: string[] = [];
 	private escalation: ReturnType<typeof setTimeout> | null = null;
 
-	constructor(binary: string, spec: LaunchSpec) {
+	public constructor(binary: string, spec: LaunchSpec) {
 		this.process = Bun.spawn(
 			[
 				binary,
@@ -58,15 +58,15 @@ class BacklogChild implements ChildProcess {
 		this.exited.then(() => this.cancelEscalation());
 	}
 
-	get exited(): Promise<number> {
+	public get exited(): Promise<number> {
 		return this.process.exited;
 	}
 
-	stderrTail(): string {
+	public stderrTail(): string {
 		return this.chunks.join("");
 	}
 
-	kill(): void {
+	public kill(): void {
 		if (this.escalation !== null) {
 			return;
 		}
@@ -79,7 +79,7 @@ class BacklogChild implements ChildProcess {
 		this.escalation.unref?.();
 	}
 
-	terminate(): void {
+	public terminate(): void {
 		this.cancelEscalation();
 		this.signalGroup("SIGKILL");
 	}

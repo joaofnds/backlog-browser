@@ -2,17 +2,17 @@ import { createHash } from "node:crypto";
 import { basename } from "node:path";
 
 export class Project {
-	readonly path: string;
-	readonly name: string;
-	readonly slug: string;
+	public readonly path: string;
+	public readonly name: string;
+	public readonly slug: string;
 
-	constructor(props: { path: string; name: string }) {
+	public constructor(props: { path: string; name: string }) {
 		this.path = props.path;
 		this.name = props.name;
 		this.slug = slugFor(props.path);
 	}
 
-	static byName(left: Project, right: Project): number {
+	public static byName(left: Project, right: Project): number {
 		return left.name.localeCompare(right.name, undefined, {
 			sensitivity: "base",
 		});

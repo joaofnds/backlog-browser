@@ -119,7 +119,9 @@ describe("hub server", () => {
 		});
 
 		test("lists nothing when the root holds no project", async () => {
-			expect((await driver.projects()).projects).toEqual([]);
+			const inventory = await driver.projects();
+
+			expect(inventory.projects).toEqual([]);
 		});
 
 		test("reports no remembered project on a fresh install", async () => {
@@ -293,7 +295,9 @@ describe("hub server", () => {
 			harness = await harness.restart();
 			driver = harness.driver();
 
-			expect((await driver.projects()).projects).toEqual([]);
+			const inventory = await driver.projects();
+
+			expect(inventory.projects).toEqual([]);
 		});
 
 		test("walks again when started with --rescan", async () => {
@@ -450,7 +454,9 @@ describe("hub server", () => {
 			test("lists nothing new", async () => {
 				await driver.addPath(harness.root);
 
-				expect((await driver.projects()).projects).toEqual([]);
+				const inventory = await driver.projects();
+
+				expect(inventory.projects).toEqual([]);
 			});
 		});
 	});

@@ -18,60 +18,70 @@ export class StateStore {
 	private readonly root: string;
 	private writes: Promise<unknown> = Promise.resolve();
 
-	constructor(props: { file: string; root: string }) {
+	public constructor(props: { file: string; root: string }) {
 		this.file = props.file;
 		this.root = props.root;
 	}
 
-	static default(root: string): StateStore {
+	public static default(root: string): StateStore {
 		return new StateStore({ file: stateFile("state.json"), root });
 	}
 
-	async lastActive(): Promise<string | null> {
-		return (await this.state()).active;
+	public async lastActive(): Promise<string | null> {
+		const state = await this.state();
+
+		return state.active;
 	}
 
-	async list(): Promise<ProjectList> {
-		return (await this.state()).list;
+	public async list(): Promise<ProjectList> {
+		const state = await this.state();
+
+		return state.list;
 	}
 
 	/** `null` is a depth never chosen, which is what lets a flag win without erasing a choice. */
-	async depth(): Promise<number | null> {
-		return (await this.state()).depth;
+	public async depth(): Promise<number | null> {
+		const state = await this.state();
+
+		return state.depth;
 	}
 
-	async portFor(path: string): Promise<number | null> {
-		return (await this.state()).ports[path] ?? null;
+	public async portFor(path: string): Promise<number | null> {
+		const state = await this.state();
+
+		return state.ports[path] ?? null;
 	}
 
-	async remember(slug: string): Promise<void> {
+	public async remember(slug: string): Promise<void> {
 		await this.update((current) => ({ ...current, active: slug }));
 	}
 
-	async rememberDepth(depth: number): Promise<void> {
+	public async rememberDepth(depth: number): Promise<void> {
 		await this.update((current) => ({ ...current, depth }));
 	}
 
-	async rememberPort(path: string, port: number): Promise<void> {
+	public async rememberPort(path: string, port: number): Promise<void> {
 		await this.update((current) => ({
 			...current,
 			ports: { ...current.ports, [path]: port },
 		}));
 	}
 
-	async updateList(
+	public async updateList(
 		change: (list: ProjectList) => ProjectList,
 	): Promise<ProjectList> {
-		return (
-			await this.update((current) => ({
-				...current,
-				list: change(current.list),
-			}))
-		).list;
+		const updated = await this.update((current) => ({
+			...current,
+			list: change(current.list),
+		}));
+
+		return updated.list;
 	}
 
 	private async state(): Promise<RootState> {
-		return readRoot((await readRoots(this.file))[this.root]);
+		const roots = await readRoots(this.file);
+
+		return readRoot(roots[this.root]);
 	}
 
 	/**

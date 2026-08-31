@@ -8,24 +8,24 @@ import { FakePortSpace } from "./fake-port-space.ts";
 import type { PortAllocator } from "./supervisor.ts";
 
 export class FakeChild implements ChildProcess {
-	readonly exited: Promise<number>;
-	killed = false;
+	public readonly exited: Promise<number>;
+	public killed = false;
 
 	private stderr = "";
 	private stubborn = false;
 	private settle!: (code: number) => void;
 
-	constructor(readonly spec: LaunchSpec) {
+	public constructor(public readonly spec: LaunchSpec) {
 		this.exited = new Promise((resolve) => {
 			this.settle = resolve;
 		});
 	}
 
-	stderrTail(): string {
+	public stderrTail(): string {
 		return this.stderr;
 	}
 
-	kill(): void {
+	public kill(): void {
 		if (this.stubborn) {
 			return;
 		}
@@ -34,23 +34,23 @@ export class FakeChild implements ChildProcess {
 		this.settle(0);
 	}
 
-	terminate(): void {
+	public terminate(): void {
 		this.killed = true;
 		this.settle(0);
 	}
 
-	ignoresTermination(): void {
+	public ignoresTermination(): void {
 		this.stubborn = true;
 	}
 
-	crash(stderr: string, code = 1): void {
+	public crash(stderr: string, code = 1): void {
 		this.stderr = stderr;
 		this.settle(code);
 	}
 }
 
 export class FakeBacklog {
-	readonly launches: LaunchSpec[] = [];
+	public readonly launches: LaunchSpec[] = [];
 	private readonly kernel = new FakePortSpace();
 	private readonly children: FakeChild[] = [];
 	private readonly listening = new Set<number>();
@@ -58,7 +58,7 @@ export class FakeBacklog {
 	private refusal: string | null = null;
 	private everyPortListens = false;
 
-	launch: ChildLauncher = (spec) => {
+	public launch: ChildLauncher = (spec) => {
 		this.launches.push(spec);
 		const child = new FakeChild(spec);
 		this.children.push(child);
@@ -72,13 +72,13 @@ export class FakeBacklog {
 		return child;
 	};
 
-	probe: ReadinessProbe = async (port) =>
+	public probe: ReadinessProbe = async (port) =>
 		this.listening.has(port) ||
 		(this.everyPortListens && !this.kernel.isTaken(port));
 
-	allocatePort = this.kernel.allocate;
+	public allocatePort = this.kernel.allocate;
 
-	portFor: PortAllocator = async ({ path, reuse }) => {
+	public portFor: PortAllocator = async ({ path, reuse }) => {
 		if (this.refusal !== null) {
 			throw new Error(this.refusal);
 		}
@@ -91,32 +91,32 @@ export class FakeBacklog {
 		return port;
 	};
 
-	occupy(...ports: number[]): void {
+	public occupy(...ports: number[]): void {
 		this.kernel.occupy(...ports);
 	}
 
-	occupyNext(count: number): void {
+	public occupyNext(count: number): void {
 		this.kernel.occupyNext(count);
 	}
 
-	refusePorts(reason: string): void {
+	public refusePorts(reason: string): void {
 		this.refusal = reason;
 	}
 
-	grantPorts(): void {
+	public grantPorts(): void {
 		this.refusal = null;
 	}
 
-	answerOn(port: number): void {
+	public answerOn(port: number): void {
 		this.listening.add(port);
 	}
 
 	/** Every unoccupied port answers, so a test survives the child landing wherever it retries to. */
-	answersAnywhere(): void {
+	public answersAnywhere(): void {
 		this.everyPortListens = true;
 	}
 
-	childAt(index: number): FakeChild {
+	public childAt(index: number): FakeChild {
 		const child = this.children[index];
 		if (!child) {
 			throw new Error(`no child launched at index ${index}`);
@@ -125,7 +125,7 @@ export class FakeBacklog {
 		return child;
 	}
 
-	childFor(cwd: string): FakeChild {
+	public childFor(cwd: string): FakeChild {
 		const child = this.children.findLast(
 			(candidate) => candidate.spec.cwd === cwd,
 		);
@@ -136,7 +136,7 @@ export class FakeBacklog {
 		return child;
 	}
 
-	get live(): FakeChild[] {
+	public get live(): FakeChild[] {
 		return this.children.filter((child) => !child.killed);
 	}
 }

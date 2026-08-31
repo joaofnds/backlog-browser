@@ -9,23 +9,23 @@ interface CachedScan {
 }
 
 export class ProjectRegistry {
-	readonly root: string;
+	public readonly root: string;
 	private currentDepth: number;
 	private readonly file: string;
 	private discovered: Project[] = [];
 	private adopted: Project[] = [];
 
-	constructor(props: { root: string; depth: number; file: string }) {
+	public constructor(props: { root: string; depth: number; file: string }) {
 		this.root = props.root;
 		this.currentDepth = props.depth;
 		this.file = props.file;
 	}
 
-	get depth(): number {
+	public get depth(): number {
 		return this.currentDepth;
 	}
 
-	async load(): Promise<readonly Project[]> {
+	public async load(): Promise<readonly Project[]> {
 		const cached = await this.cachedScan();
 		if (cached === null) {
 			return this.refresh();
@@ -39,7 +39,7 @@ export class ProjectRegistry {
 		return this.all();
 	}
 
-	async refresh(depth = this.currentDepth): Promise<readonly Project[]> {
+	public async refresh(depth = this.currentDepth): Promise<readonly Project[]> {
 		this.currentDepth = depth;
 		this.discovered = await readProjects(
 			await findProjectPaths({ root: this.root, depth }),
@@ -53,18 +53,18 @@ export class ProjectRegistry {
 	 * Paths the user picked by hand, merged into every later answer. They stay out of the discovery
 	 * cache: a walk rewrites it, and nothing in a walk would put them back.
 	 */
-	async adopt(paths: readonly string[]): Promise<readonly Project[]> {
+	public async adopt(paths: readonly string[]): Promise<readonly Project[]> {
 		this.adopted = await readProjects(paths);
 
 		return this.all();
 	}
 
 	/** The paths the walk produced. Everything else in `all()` is there because the user added it. */
-	walked(): ReadonlySet<string> {
+	public walked(): ReadonlySet<string> {
 		return new Set(this.discovered.map((project) => project.path));
 	}
 
-	all(): readonly Project[] {
+	public all(): readonly Project[] {
 		const known = new Set(this.discovered.map((project) => project.path));
 
 		return [
@@ -73,13 +73,14 @@ export class ProjectRegistry {
 		].sort(Project.byName);
 	}
 
-	find(slug: string): Project | undefined {
+	public find(slug: string): Project | undefined {
 		return this.all().find((project) => project.slug === slug);
 	}
 
 	/** The cache is keyed by depth, so a shallower saved walk misses rather than serving less. */
 	private async cachedScan(): Promise<string[] | null> {
-		const scan = asScan((await readRoots(this.file))[this.root]);
+		const roots = await readRoots(this.file);
+		const scan = asScan(roots[this.root]);
 		if (scan === null || scan.depth !== this.currentDepth) {
 			return null;
 		}

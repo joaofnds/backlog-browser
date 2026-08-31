@@ -48,7 +48,7 @@ export class Supervisor {
 	private readonly entries = new Map<string, Entry>();
 	private stopped = false;
 
-	constructor(props: {
+	public constructor(props: {
 		launch: ChildLauncher;
 		probe: ReadinessProbe;
 		portFor: PortAllocator;
@@ -66,7 +66,7 @@ export class Supervisor {
 		this.now = props.now ?? Date.now;
 	}
 
-	async activate(project: Project): Promise<Activation> {
+	public async activate(project: Project): Promise<Activation> {
 		if (this.stopped) {
 			return { status: "failed", error: "The hub is shutting down." };
 		}
@@ -104,23 +104,23 @@ export class Supervisor {
 		return { status: "starting" };
 	}
 
-	statusOf(project: Project): Activation {
+	public statusOf(project: Project): Activation {
 		return this.entries.get(project.slug)?.activation ?? { status: "idle" };
 	}
 
 	/** The shell names its on-screen project every status poll; that report is what keeps it warm. */
-	touch(project: Project): void {
+	public touch(project: Project): void {
 		const entry = this.entries.get(project.slug);
 		if (entry) {
 			entry.lastUsedAt = this.now();
 		}
 	}
 
-	settled(project: Project): Promise<void> {
+	public settled(project: Project): Promise<void> {
 		return this.entries.get(project.slug)?.settling ?? Promise.resolve();
 	}
 
-	stopIdle(): void {
+	public stopIdle(): void {
 		if (this.idleTimeoutMs === 0) {
 			return;
 		}
@@ -134,7 +134,7 @@ export class Supervisor {
 	}
 
 	/** Children stay listed until they exit, so a `terminate` racing this still finds them. */
-	async shutdown(): Promise<void> {
+	public async shutdown(): Promise<void> {
 		this.stopped = true;
 
 		const children = this.children();
@@ -146,7 +146,7 @@ export class Supervisor {
 		this.entries.clear();
 	}
 
-	terminate(): void {
+	public terminate(): void {
 		this.stopped = true;
 
 		for (const child of this.children()) {

@@ -55,7 +55,8 @@ export async function startApp(
 		file: deps.cacheFile,
 	});
 	await (options.rescan ? registry.refresh() : registry.load());
-	await registry.adopt((await store.list()).added);
+	const listed = await store.list();
+	await registry.adopt(listed.added);
 
 	const supervisor = new Supervisor({
 		launch: deps.launch,

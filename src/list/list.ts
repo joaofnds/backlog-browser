@@ -9,13 +9,13 @@ export interface ListedProject {
 }
 
 export class ProjectList {
-	readonly mode: OrderMode;
-	readonly order: readonly string[];
-	readonly hidden: readonly string[];
+	public readonly mode: OrderMode;
+	public readonly order: readonly string[];
+	public readonly hidden: readonly string[];
 	/** Paths the user picked by hand. The walk never produces them, so only this list keeps them. */
-	readonly added: readonly string[];
+	public readonly added: readonly string[];
 
-	constructor(props: {
+	public constructor(props: {
 		mode: OrderMode;
 		order: readonly string[];
 		hidden: readonly string[];
@@ -27,7 +27,7 @@ export class ProjectList {
 		this.added = props.added;
 	}
 
-	static empty(): ProjectList {
+	public static empty(): ProjectList {
 		return new ProjectList({
 			mode: "default",
 			order: [],
@@ -36,7 +36,7 @@ export class ProjectList {
 		});
 	}
 
-	static from(value: unknown): ProjectList {
+	public static from(value: unknown): ProjectList {
 		const stored = asRecord(value);
 		if (stored === null) {
 			return ProjectList.empty();
@@ -50,7 +50,7 @@ export class ProjectList {
 		});
 	}
 
-	arrange(discovered: readonly Project[]): ListedProject[] {
+	public arrange(discovered: readonly Project[]): ListedProject[] {
 		const hidden = new Set(this.hidden);
 		const visible = discovered.filter((project) => !hidden.has(project.path));
 		const concealed = discovered.filter((project) => hidden.has(project.path));
@@ -61,7 +61,7 @@ export class ProjectList {
 		];
 	}
 
-	hide(path: string): ProjectList {
+	public hide(path: string): ProjectList {
 		return new ProjectList({
 			mode: this.mode,
 			order: this.order.filter((stored) => stored !== path),
@@ -70,7 +70,7 @@ export class ProjectList {
 		});
 	}
 
-	show(path: string): ProjectList {
+	public show(path: string): ProjectList {
 		return new ProjectList({
 			mode: this.mode,
 			order: this.order,
@@ -79,7 +79,7 @@ export class ProjectList {
 		});
 	}
 
-	add(path: string): ProjectList {
+	public add(path: string): ProjectList {
 		return new ProjectList({
 			mode: this.mode,
 			order: this.order,
@@ -89,7 +89,7 @@ export class ProjectList {
 	}
 
 	/** Drops every trace of the path, because nothing else would put an added project back. */
-	drop(path: string): ProjectList {
+	public drop(path: string): ProjectList {
 		return new ProjectList({
 			mode: this.mode,
 			order: this.order.filter((stored) => stored !== path),
@@ -103,7 +103,7 @@ export class ProjectList {
 	 * a neighbour rather than an index is what lets a stored path the walk did not find keep its
 	 * slot: it is never named, so it rides along with whichever neighbour it sits behind.
 	 */
-	move(props: {
+	public move(props: {
 		path: string;
 		before: string | null;
 		discovered: readonly Project[];
@@ -132,7 +132,7 @@ export class ProjectList {
 		});
 	}
 
-	reset(): ProjectList {
+	public reset(): ProjectList {
 		return new ProjectList({
 			mode: "default",
 			order: [],
@@ -141,7 +141,7 @@ export class ProjectList {
 		});
 	}
 
-	toJSON(): {
+	public toJSON(): {
 		mode: OrderMode;
 		order: readonly string[];
 		hidden: readonly string[];
