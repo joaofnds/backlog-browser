@@ -23,6 +23,10 @@ source with no rebuild:
 ln -sf "$PWD/src/cli.ts" ~/.local/bin/backlog-browser
 ```
 
+Installed as a package instead, the command is a small Node script that hands over to Bun, because
+npm cannot run the TypeScript entry point itself. Bun still has to be there; without it the command
+says so rather than failing as `env: bun: No such file or directory`.
+
 For a standalone binary with no Bun on `PATH`, `bun run build` writes `dist/backlog-browser`; link
 that instead and rebuild after each change.
 

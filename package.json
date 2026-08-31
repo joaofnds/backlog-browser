@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "description": "One local URL for every Backlog.md project under a folder, with a toolbar to switch between them.",
   "license": "MIT",
-  "author": "João Fernandes",
+  "author": "Jo\u00e3o Fernandes",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/joaofnds/backlog-browser.git"
@@ -22,7 +22,7 @@
     "bun": ">=1.4.0"
   },
   "bin": {
-    "backlog-browser": "./src/cli.ts"
+    "backlog-browser": "./bin/backlog-browser.js"
   },
   "scripts": {
     "start": "bun run src/cli.ts",
@@ -34,7 +34,18 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.14",
+    "@oxlint/plugins": "1.80.0",
     "@types/bun": "^1.4.0",
+    "oxfmt": "^0.65.0",
+    "oxlint": "^1.80.0",
+    "oxlint-tsgolint": "^7.0.2001",
     "typescript": "^5.9.3"
-  }
+  },
+  "files": [
+    "bin",
+    "src",
+    "tsconfig.json",
+    "README.md",
+    "LICENSE"
+  ]
 }
