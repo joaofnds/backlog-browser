@@ -62,7 +62,7 @@ describe("WriteQueue", () => {
 
 		const failed = queue.add(() => Promise.reject(new Error("disk full")));
 
-		await expect(failed).rejects.toThrow("disk full");
+		expect(failed).rejects.toThrow("disk full");
 		await queue.add(state.increment);
 
 		expect(state.value).toBe(1);

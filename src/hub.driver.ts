@@ -2,6 +2,8 @@ import { connect } from "node:net";
 
 import { z } from "zod";
 
+import { deferred } from "./deferred.ts";
+
 /**
  * The shapes the hub answers with. The tests parse against these rather than asserting, so a
  * response that drifts fails in the driver, naming the field, instead of somewhere downstream.
@@ -137,24 +139,25 @@ export class HubDriver {
 	 */
 	public async hostless(path: string): Promise<Response> {
 		const url = new URL(this.origin);
-		const raw = await new Promise<string>((resolve, reject) => {
-			const socket = connect(
-				{ host: url.hostname, port: Number(url.port) },
-				() => {
-					socket.write(`GET ${path} HTTP/1.0\r\n\r\n`);
-				},
-			);
-			let answer = "";
-			socket.setEncoding("utf8");
-			socket.on("data", (chunk) => {
-				answer += String(chunk);
-			});
-			socket.on("end", () => {
-				resolve(answer);
-			});
-			socket.on("error", reject);
-		});
+		const answered = deferred<string>();
+		const socket = connect(
+			{ host: url.hostname, port: Number(url.port) },
+			() => {
+				socket.write(`GET ${path} HTTP/1.0\r\n\r\n`);
+			},
+		);
 
+		let answer = "";
+		socket.setEncoding("utf8");
+		socket.on("data", (chunk) => {
+			answer += String(chunk);
+		});
+		socket.on("end", () => {
+			answered.settle(answer);
+		});
+		socket.on("error", answered.fail);
+
+		const raw = await answered.promise;
 		const [head, body = ""] = raw.split("\r\n\r\n");
 		const status = Number(head?.split(" ")[1] ?? 0);
 

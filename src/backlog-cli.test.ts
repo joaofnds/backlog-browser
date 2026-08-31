@@ -41,7 +41,7 @@ describe("locateBacklog", () => {
 		test("rejects with the name it looked for", async () => {
 			const attempt = locateBacklog({ run: runnerFor({}) });
 
-			await expect(attempt).rejects.toBeInstanceOf(BacklogUnavailableError);
+			expect(attempt).rejects.toBeInstanceOf(BacklogUnavailableError);
 		});
 	});
 
@@ -55,9 +55,7 @@ describe("locateBacklog", () => {
 				},
 			});
 
-			await expect(locateBacklog({ run })).rejects.toThrow(
-				/--non-interactive/u,
-			);
+			expect(locateBacklog({ run })).rejects.toThrow(/--non-interactive/u);
 		});
 
 		test("rejects naming the version it found", async () => {
@@ -69,7 +67,7 @@ describe("locateBacklog", () => {
 				},
 			});
 
-			await expect(locateBacklog({ run })).rejects.toThrow(/2\.0\.0/u);
+			expect(locateBacklog({ run })).rejects.toThrow(/2\.0\.0/u);
 		});
 	});
 });

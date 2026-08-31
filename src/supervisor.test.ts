@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 
 import { Project } from "./project.ts";
+import { deferred } from "./deferred.ts";
 import { FakeBacklog } from "./fake-backlog.ts";
 import { MAX_PORT_ATTEMPTS, Supervisor } from "./supervisor.ts";
 import type { Activation } from "./supervisor.ts";
@@ -393,17 +394,12 @@ describe("Supervisor", () => {
 		});
 
 		test("launches nothing when shutdown lands during port allocation", async () => {
-			let grant!: (port: number) => void;
-			const supervisor = supervisorWith({
-				portFor: () =>
-					new Promise((resolve) => {
-						grant = resolve;
-					}),
-			});
+			const granted = deferred<number>();
+			const supervisor = supervisorWith({ portFor: () => granted.promise });
 
 			const activating = supervisor.activate(alpha);
 			await supervisor.shutdown();
-			grant(40_123);
+			granted.settle(40_123);
 			await activating;
 
 			expect(backlog.launches).toEqual([]);

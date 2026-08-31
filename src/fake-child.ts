@@ -1,4 +1,5 @@
 import type { ChildProcess, LaunchSpec } from "./child.ts";
+import { deferred } from "./deferred.ts";
 
 export class FakeChild implements ChildProcess {
 	public readonly exited: Promise<number>;
@@ -6,12 +7,12 @@ export class FakeChild implements ChildProcess {
 
 	private stderr = "";
 	private stubborn = false;
-	private settle!: (code: number) => void;
+	private readonly settle: (code: number) => void;
 
 	public constructor(public readonly spec: LaunchSpec) {
-		this.exited = new Promise((resolve) => {
-			this.settle = resolve;
-		});
+		const exit = deferred<number>();
+		this.exited = exit.promise;
+		this.settle = exit.settle;
 	}
 
 	public stderrTail(): string {
