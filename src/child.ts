@@ -1,4 +1,4 @@
-import { childEnvironment } from "./environment.ts";
+import { childEnvironment, spawnable } from "./environment.ts";
 
 export const LOOPBACK = "127.0.0.1";
 export const STDERR_TAIL_CHUNKS = 25;
@@ -44,7 +44,7 @@ class BacklogChild implements ChildProcess {
 			],
 			{
 				cwd: spec.cwd,
-				env: childEnvironment(spec.cwd),
+				env: spawnable(childEnvironment(spec.cwd)),
 				stdin: "ignore",
 				stdout: "ignore",
 				stderr: "pipe",
